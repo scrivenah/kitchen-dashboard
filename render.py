@@ -60,7 +60,7 @@ def get_calendar_events():
                     else:
                         base_start_date = dtstart
                         base_end_date = dtend if isinstance(dtend, datetime.date) else dtstart
-                        time_str = ""  # Clean look: no "All Day" clutter
+                        time_str = ""
                         duration = base_end_date - base_start_date
 
                     if is_all_day and base_end_date > base_start_date:
@@ -101,7 +101,6 @@ def get_calendar_events():
         except Exception as e:
             log(f"Feed error: {e}")
 
-    # Deduplicate
     unique_events = list({(e[0], e[1], e[2]): e for e in raw_events}.values())
     unique_events.sort(key=lambda x: (x[0], 0 if x[1] == "" else 1, x[1]))
 
@@ -160,42 +159,48 @@ def get_ecowitt_data():
         log(f"Ecowitt error: {e}")
         return None
 
-# --- 3. BOM FORECAST FETCHER ---
+# --- 3. BOM FORECAST & YESTERDAY FETCHER ---
 def get_balingup_bom():
     url = (
         "https://api.open-meteo.com/v1/forecast?"
         "latitude=-33.7865&longitude=115.9838&"
         "daily=weathercode,temperature_2m_max,temperature_2m_min,precipitation_sum,precipitation_probability_max&"
+        "past_days=1&"
         "timezone=Australia%2FPerth"
     )
     try:
         res = requests.get(url, timeout=10).json()
         daily = res["daily"]
+        # Index 0 is Yesterday, Index 1 is Today, Index 2 is Tomorrow
         return {
-            "today": {
-                "code": daily["weathercode"][0],
+            "yesterday": {
                 "max": round(daily["temperature_2m_max"][0]),
                 "min": round(daily["temperature_2m_min"][0]),
-                "rain_sum": daily.get("precipitation_sum", [0, 0])[0] or 0.0,
-                "rain_prob": daily.get("precipitation_probability_max", [0, 0])[0] or 0,
             },
-            "tomorrow": {
+            "today": {
                 "code": daily["weathercode"][1],
                 "max": round(daily["temperature_2m_max"][1]),
                 "min": round(daily["temperature_2m_min"][1]),
-                "rain_sum": daily.get("precipitation_sum", [0, 0])[1] or 0.0,
-                "rain_prob": daily.get("precipitation_probability_max", [0, 0])[1] or 0,
+                "rain_sum": daily.get("precipitation_sum", [0, 0, 0])[1] or 0.0,
+                "rain_prob": daily.get("precipitation_probability_max", [0, 0, 0])[1] or 0,
+            },
+            "tomorrow": {
+                "code": daily["weathercode"][2],
+                "max": round(daily["temperature_2m_max"][2]),
+                "min": round(daily["temperature_2m_min"][2]),
+                "rain_sum": daily.get("precipitation_sum", [0, 0, 0])[2] or 0.0,
+                "rain_prob": daily.get("precipitation_probability_max", [0, 0, 0])[2] or 0,
             }
         }
     except Exception as e:
         log(f"BOM error: {e}")
         return None
 
-# --- 4. RENDER CANVAS & MATERIAL YOU STYLING ---
 today_events, tomorrow_events, later_events = get_calendar_events()
 ecowitt = get_ecowitt_data()
 bom = get_balingup_bom()
 
+# --- 4. RENDER CANVAS & MATERIAL YOU STYLING ---
 img = Image.new('1', (WIDTH, HEIGHT), 255)
 draw = ImageDraw.Draw(img)
 
@@ -210,9 +215,9 @@ def load_font(size):
             return ImageFont.truetype(p, size)
     return ImageFont.load_default()
 
-font_hero = load_font(44)
-font_title = load_font(17)
-font_card_head = load_font(13)
+font_hero = load_font(42)
+font_title = load_font(16)
+font_card_head = load_font(12)
 font_sub = load_font(12)
 font_small = load_font(10)
 
@@ -239,21 +244,21 @@ def draw_weather_icon(draw_obj, code, x, y):
         for rx in [x+12, x+22, x+32]:
             draw_obj.line([(rx, y+36), (rx-3, y+44)], fill=0, width=2)
 
-# --- TOP STATUS BAR (PILL DESIGN) ---
-draw.rounded_rectangle([(12, 10), (WIDTH - 12, 48)], radius=19, fill=0)
+# --- TOP STATUS BAR (CLEAN OUTLINED PILL) ---
+draw.rounded_rectangle([(12, 10), (WIDTH - 12, 48)], radius=19, outline=0, width=2)
 tz_wa = datetime.timezone(datetime.timedelta(hours=8))
 now_wa = datetime.datetime.now(tz_wa)
 date_str = now_wa.strftime("%A, %d %B %Y").upper()
-draw.text((30, 20), "BALINGUP DASHBOARD", font=font_title, fill=1)
-draw.text((WIDTH - 230, 23), date_str, font=font_small, fill=1)
+draw.text((28, 20), "BALINGUP DASHBOARD", font=font_title, fill=0)
+draw.text((WIDTH - 230, 23), date_str, font=font_small, fill=0)
 
 # --- LEFT COLUMN: AGENDA ---
-# Card 1: Today & Tomorrow (12, 58) to (435, 335)
+# Card 1: Today & Tomorrow
 draw.rounded_rectangle([(12, 58), (435, 335)], radius=22, outline=0, width=2)
 
-# Section: TODAY
-draw.rounded_rectangle([(24, 70), (105, 92)], radius=11, fill=0)
-draw.text((36, 74), "TODAY", font=font_card_head, fill=1)
+# Section: TODAY (Outlined Pill)
+draw.rounded_rectangle([(24, 70), (105, 92)], radius=11, outline=0, width=1)
+draw.text((36, 74), "TODAY", font=font_card_head, fill=0)
 
 y_cursor = 100
 if today_events:
@@ -266,10 +271,10 @@ else:
     draw.text((28, y_cursor), "• No events today", font=font_sub, fill=0)
     y_cursor += 20
 
-# Section: TOMORROW
+# Section: TOMORROW (Outlined Pill)
 y_cursor = max(y_cursor + 6, 185)
-draw.rounded_rectangle([(24, y_cursor), (145, y_cursor + 22)], radius=11, fill=0)
-draw.text((36, y_cursor + 4), "TOMORROW", font=font_card_head, fill=1)
+draw.rounded_rectangle([(24, y_cursor), (145, y_cursor + 22)], radius=11, outline=0, width=1)
+draw.text((36, y_cursor + 4), "TOMORROW", font=font_card_head, fill=0)
 y_cursor += 30
 
 if tomorrow_events:
@@ -281,10 +286,10 @@ if tomorrow_events:
 else:
     draw.text((28, y_cursor), "• No events tomorrow", font=font_sub, fill=0)
 
-# Card 2: Looking Ahead (12, 345) to (435, 468)
+# Card 2: Looking Ahead
 draw.rounded_rectangle([(12, 345), (435, 468)], radius=20, outline=0, width=2)
-draw.rounded_rectangle([(24, 355), (170, 375)], radius=10, fill=0)
-draw.text((34, 358), "LOOKING AHEAD", font=font_small, fill=1)
+draw.rounded_rectangle([(24, 355), (160, 375)], radius=10, outline=0, width=1)
+draw.text((34, 358), "LOOKING AHEAD", font=font_small, fill=0)
 
 y_ahead = 385
 if later_events:
@@ -300,38 +305,41 @@ else:
 # --- RIGHT COLUMN: WEATHER WIDGETS ---
 # Card 3: Ecowitt (447, 58) to (WIDTH - 12, 250)
 draw.rounded_rectangle([(447, 58), (WIDTH - 12, 250)], radius=22, outline=0, width=2)
-draw.rounded_rectangle([(460, 68), (620, 90)], radius=11, fill=0)
-draw.text((472, 72), "BACKYARD SENSORS", font=font_card_head, fill=1)
+draw.rounded_rectangle([(460, 68), (620, 90)], radius=11, outline=0, width=1)
+draw.text((472, 72), "BACKYARD SENSORS", font=font_card_head, fill=0)
 
 if ecowitt:
-    draw.text((462, 102), f"{ecowitt['temp_c']}°", font=font_hero, fill=0)
+    draw.text((462, 98), f"{ecowitt['temp_c']}°", font=font_hero, fill=0)
     
-    # Humidity & status badge
-    draw.rounded_rectangle([(610, 104), (WIDTH - 24, 128)], radius=12, fill=0)
-    draw.text((622, 109), f"HUMIDITY {ecowitt['humidity']}%", font=font_small, fill=1)
-    draw.text((615, 136), "● STATION ONLINE", font=font_small, fill=0)
+    # Humidity and status (no solid pill)
+    draw.text((605, 102), f"HUMIDITY: {ecowitt['humidity']}%", font=font_sub, fill=0)
+    draw.text((605, 120), "● LIVE ONLINE", font=font_small, fill=0)
+
+    # Yesterday's High / Low
+    if bom and "yesterday" in bom:
+        draw.text((462, 146), f"Yesterday: Max {bom['yesterday']['max']}°C | Min {bom['yesterday']['min']}°C", font=font_small, fill=0)
 
     # Dotted divider line
     for dx in range(460, WIDTH - 24, 6):
-        draw.point((dx, 160), fill=0)
+        draw.point((dx, 166), fill=0)
 
-    draw.text((462, 172), f"Rain 24h: {ecowitt['rain_24h']} mm", font=font_sub, fill=0)
-    draw.text((610, 172), f"Weekly: {ecowitt['rain_weekly']} mm", font=font_sub, fill=0)
+    draw.text((462, 174), f"Rain 24h: {ecowitt['rain_24h']} mm", font=font_sub, fill=0)
+    draw.text((605, 174), f"Weekly: {ecowitt['rain_weekly']} mm", font=font_sub, fill=0)
     draw.text((462, 198), f"Last Event: {ecowitt['rain_event']} mm", font=font_sub, fill=0)
-    draw.text((610, 198), "(Reset at 9 AM)", font=font_small, fill=0)
+    draw.text((605, 198), "(Reset at 9 AM)", font=font_small, fill=0)
 else:
     draw.text((462, 110), "Sensors connecting...", font=font_sub, fill=0)
 
 # Card 4: BOM Regional Forecast (447, 260) to (WIDTH - 12, 468)
 draw.rounded_rectangle([(447, 260), (WIDTH - 12, 468)], radius=22, outline=0, width=2)
-draw.rounded_rectangle([(460, 270), (620, 292)], radius=11, fill=0)
-draw.text((472, 274), "REGIONAL FORECAST", font=font_card_head, fill=1)
+draw.rounded_rectangle([(460, 270), (635, 292)], radius=11, outline=0, width=1)
+draw.text((472, 274), "REGIONAL FORECAST", font=font_card_head, fill=0)
 
 if bom:
     # Today's forecast block
-    draw_weather_icon(draw, bom["today"]["code"], 460, 310)
-    draw.text((518, 308), f"TODAY  Max {bom['today']['max']}° | Min {bom['today']['min']}°", font=font_sub, fill=0)
-    draw.text((518, 328), f"Precip: {bom['today']['rain_prob']}% ({bom['today']['rain_sum']} mm)", font=font_small, fill=0)
+    draw_weather_icon(draw, bom["today"]["code"], 460, 308)
+    draw.text((518, 306), f"TODAY  Max {bom['today']['max']}° | Min {bom['today']['min']}°", font=font_sub, fill=0)
+    draw.text((518, 326), f"Precip: {bom['today']['rain_prob']}% ({bom['today']['rain_sum']} mm)", font=font_small, fill=0)
 
     # Divider line
     for dx in range(460, WIDTH - 24, 6):
@@ -345,4 +353,4 @@ else:
     draw.text((460, 310), "Forecast unavailable", font=font_sub, fill=0)
 
 img.save("dashboard.png", "PNG")
-log("Saved Android 16-inspired rounded dashboard successfully!")
+log("Saved refined light outline dashboard successfully!")
