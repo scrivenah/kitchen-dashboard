@@ -10,30 +10,34 @@ WIDTH, HEIGHT = 800, 480
 def get_calendar_events():
     ics_urls = os.environ.get("CALENDAR_ICS_URLS", "")
     if not ics_urls:
-        print("No CALENDAR_ICS_URLS found in environment.")
+        print("DEBUG: No CALENDAR_ICS_URLS found in environment.")
         return []
 
-    # WA Timezone offset (AWST is UTC+8)
+    # WA Timezone (UTC+8)
     tz_wa = datetime.timezone(datetime.timedelta(hours=8))
-    now = datetime.datetime.now(tz_wa)
-    today = now.date()
+    now_wa = datetime.datetime.now(tz_wa)
+    today = now_wa.date()
     tomorrow = today + datetime.timedelta(days=1)
+
+    print(f"DEBUG: Checking for Today ({today}) and Tomorrow ({tomorrow})")
+
+    url_list = [u.strip() for u in ics_urls.split(",") if u.strip()]
+    print(f"DEBUG: Found {len(url_list)} calendar URL(s) to scan.")
 
     events = []
 
-    for url in ics_urls.split(","):
-        url = url.strip()
-        if not url:
-            continue
+    for i, url in enumerate(url_list):
         try:
-            res = requests.get(url, timeout=10)
+            res = requests.get(url, timeout=12)
             if res.status_code != 200:
-                print(f"Calendar URL HTTP error {res.status_code}")
+                print(f"DEBUG: URL #{i+1} returned HTTP {res.status_code}")
                 continue
             
             cal = Calendar.from_ical(res.text)
+            event_count = 0
             for component in cal.walk():
                 if component.name == "VEVENT":
+                    event_count += 1
                     summary = str(component.get("summary", "Untitled"))
                     dtstart_prop = component.get("dtstart")
                     if not dtstart_prop:
@@ -43,37 +47,45 @@ def get_calendar_events():
                     dtend_prop = component.get("dtend")
                     dtend = dtend_prop.dt if dtend_prop else dtstart
 
-                    # 1. Normalize START to pure date and format time string
+                    # Convert start to local date & time label
                     if isinstance(dtstart, datetime.datetime):
-                        dtstart_wa = dtstart.astimezone(tz_wa)
-                        start_d = dtstart_wa.date()
-                        time_str = dtstart_wa.strftime("%I:%M %p")
-                    else:
-                        start_d = dtstart
+                        dtstart_local = dtstart.astimezone(tz_wa)
+                        start_date = dtstart_local.date()
+                        time_str = dtstart_local.strftime("%I:%M %p").lstrip('0')
+                    elif isinstance(dtstart, datetime.date):
+                        start_date = dtstart
                         time_str = "All Day"
+                    else:
+                        continue
 
-                    # 2. Normalize END to pure date
+                    # Convert end to local date
                     if isinstance(dtend, datetime.datetime):
-                        end_d = dtend.astimezone(tz_wa).date()
+                        dtend_local = dtend.astimezone(tz_wa)
+                        end_date = dtend_local.date()
+                    elif isinstance(dtend, datetime.date):
+                        end_date = dtend
                     else:
-                        end_d = dtend
+                        end_date = start_date
 
-                    # For all-day events, iCal end date is exclusive (ends on 8th means active through 7th)
-                    if time_str == "All Day" and end_d > start_d:
-                        effective_end = end_d - datetime.timedelta(days=1)
+                    # For all-day events, iCal end date is exclusive
+                    if time_str == "All Day" and end_date > start_date:
+                        effective_end = end_date - datetime.timedelta(days=1)
                     else:
-                        effective_end = end_d
+                        effective_end = end_date
 
-                    # Check if TODAY is within [start_d, effective_end]
-                    if start_d <= today <= effective_end:
+                    # Match Today
+                    if start_date <= today <= effective_end:
+                        print(f"DEBUG: MATCHED TODAY -> '{summary}' ({time_str})")
                         events.append((today, time_str, summary, "TODAY"))
-
-                    # Check if TOMORROW is within [start_d, effective_end]
-                    if start_d <= tomorrow <= effective_end:
+                    # Match Tomorrow
+                    elif start_date <= tomorrow <= effective_end:
+                        print(f"DEBUG: MATCHED TOMORROW -> '{summary}' ({time_str})")
                         events.append((tomorrow, time_str, summary, "TOMORROW"))
 
+            print(f"DEBUG: URL #{i+1} processed {event_count} total events.")
+
         except Exception as e:
-            print(f"Error parsing feed: {e}")
+            print(f"DEBUG: Error reading URL #{i+1}: {e}")
 
     # Deduplicate while preserving order
     seen = set()
@@ -84,7 +96,7 @@ def get_calendar_events():
             seen.add(key)
             deduped.append(ev)
 
-    # Sort: Today first, All Day first, then by time
+    # Sort: Today first, All Day first, then by time string
     deduped.sort(key=lambda x: (x[0], 0 if x[1] == "All Day" else 1, x[1]))
     return deduped
 
