@@ -11,11 +11,12 @@ def log(msg):
     print(f"LOG: {msg}", flush=True)
 
 # --- COLOR PALETTE (Material You / Android Theme) ---
-COLOR_BG = (248, 249, 250)         # Soft off-white
+COLOR_BG = (248, 249, 250)         # Soft porcelain white
 COLOR_CARD = (255, 255, 255)       # Card background
-COLOR_BORDER = (220, 224, 230)     # Clean borders
-COLOR_TEXT_DARK = (28, 30, 33)     # Primary charcoal
-COLOR_TEXT_MUTED = (108, 115, 125) # Secondary text
+COLOR_BORDER = (220, 224, 230)     # Clean hairline borders
+COLOR_TEXT_DARK = (28, 30, 33)     # Primary charcoal text
+COLOR_TEXT_MUTED = (108, 115, 125) # Secondary grey text
+COLOR_ACCENT = (41, 98, 255)       # Primary vibrant blue
 
 # Event Category Accents
 COLOR_WORK = (26, 115, 232)        # Blue
@@ -184,18 +185,6 @@ def get_ecowitt_data():
         temp_c = parse_temp(temp_data)
         humidity = outdoor.get("humidity", {}).get("value", "--")
 
-        # Today's station recorded High & Low if exposed by gateway/API
-        temp_max = None
-        temp_min = None
-        for k in ["max", "high", "daily_max", "day_max"]:
-            if k in temp_data:
-                temp_max = parse_temp(temp_data[k])
-                break
-        for k in ["min", "low", "daily_min", "day_min"]:
-            if k in temp_data:
-                temp_min = parse_temp(temp_data[k])
-                break
-
         def to_mm(metric_dict):
             if not metric_dict:
                 return 0.0
@@ -205,8 +194,6 @@ def get_ecowitt_data():
 
         return {
             "temp_c": temp_c,
-            "temp_max": temp_max,
-            "temp_min": temp_min,
             "humidity": humidity,
             "rain_event": to_mm(rainfall.get("event")),
             "rain_24h": to_mm(rainfall.get("daily")),
@@ -216,12 +203,13 @@ def get_ecowitt_data():
         log(f"Ecowitt error: {e}")
         return None
 
-# --- 3. BOM FORECAST FETCHER ---
+# --- 3. BOM FORECAST & HOURLY FETCHER ---
 def get_balingup_bom():
     url = (
         "https://api.open-meteo.com/v1/forecast?"
         "latitude=-33.7865&longitude=115.9838&"
         "daily=weathercode,temperature_2m_max,temperature_2m_min,precipitation_sum,precipitation_probability_max&"
+        "hourly=temperature_2m&"
         "past_days=1&forecast_days=7&"
         "timezone=Australia%2FPerth"
     )
@@ -233,6 +221,12 @@ def get_balingup_bom():
 
         daily = res["daily"]
         dates = [datetime.datetime.strptime(d, "%Y-%m-%d").date() for d in daily["time"]]
+
+        # Extract true overnight low (yesterday 8 PM to today 8 AM)
+        hourly_temps = res.get("hourly", {}).get("temperature_2m", [])
+        overnight_slice = hourly_temps[20:33] if len(hourly_temps) >= 33 else []
+        overnight_low = round(min(overnight_slice)) if overnight_slice else round(daily["temperature_2m_min"][1])
+        yesterday_high = round(daily["temperature_2m_max"][0])
 
         upcoming_5_days = []
         for i in range(3, min(8, len(dates))):
@@ -246,10 +240,8 @@ def get_balingup_bom():
         rain_probs = daily.get("precipitation_probability_max", [0]*8)
 
         return {
-            "yesterday": {
-                "max": round(daily["temperature_2m_max"][0]),
-                "min": round(daily["temperature_2m_min"][0]),
-            },
+            "yesterday_high": yesterday_high,
+            "overnight_low": overnight_low,
             "today": {
                 "code": daily["weathercode"][1],
                 "max": round(daily["temperature_2m_max"][1]),
@@ -404,11 +396,10 @@ if ecowitt:
     draw.text((462, 98), f"{ecowitt['temp_c']}°", font=font_hero, fill=COLOR_TEXT_DARK)
     draw.text((605, 110), f"Humidity: {ecowitt['humidity']}%", font=font_sub, fill=COLOR_TEXT_DARK)
 
-    # Show station today High / Low if reported by Ecowitt, otherwise BOM yesterday
-    if ecowitt.get("temp_max") is not None and ecowitt.get("temp_min") is not None:
-        draw.text((462, 146), f"Today: High {ecowitt['temp_max']}°C | Low {ecowitt['temp_min']}°C", font=font_small, fill=COLOR_TEXT_MUTED)
-    elif bom and "yesterday" in bom:
-        draw.text((462, 146), f"Yesterday: Max {bom['yesterday']['max']}°C | Min {bom['yesterday']['min']}°C", font=font_small, fill=COLOR_TEXT_MUTED)
+    # Show: Yesterday's High : X°C  |  Overnight's Low : Y°C
+    if bom and "yesterday_high" in bom and "overnight_low" in bom:
+        stat_line = f"Yesterday's High : {bom['yesterday_high']}°C  |  Overnight's Low : {bom['overnight_low']}°C"
+        draw.text((462, 146), stat_line, font=font_small, fill=COLOR_TEXT_MUTED)
 
     for dx in range(460, WIDTH - 24, 6):
         draw.point((dx, 166), fill=COLOR_BORDER)
