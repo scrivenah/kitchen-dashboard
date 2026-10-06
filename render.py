@@ -159,18 +159,30 @@ def get_ecowitt_data():
         log(f"Ecowitt error: {e}")
         return None
 
-# --- 3. BOM FORECAST & YESTERDAY FETCHER ---
+# --- 3. BOM FORECAST FETCHER (7-DAY OUTLOOK) ---
 def get_balingup_bom():
     url = (
         "https://api.open-meteo.com/v1/forecast?"
         "latitude=-33.7865&longitude=115.9838&"
         "daily=weathercode,temperature_2m_max,temperature_2m_min,precipitation_sum,precipitation_probability_max&"
-        "past_days=1&"
+        "past_days=1&forecast_days=7&"
         "timezone=Australia%2FPerth"
     )
     try:
         res = requests.get(url, timeout=10).json()
         daily = res["daily"]
+        dates = [datetime.datetime.strptime(d, "%Y-%m-%d").date() for d in daily["time"]]
+
+        # Index 0 is Yesterday, Index 1 is Today, Index 2 is Tomorrow
+        # Indices 3 to 7 are the subsequent 5 days
+        upcoming_5_days = []
+        for i in range(3, min(8, len(dates))):
+            upcoming_5_days.append({
+                "date": dates[i],
+                "day_name": dates[i].strftime("%a").upper(),
+                "code": daily["weathercode"][i]
+            })
+
         return {
             "yesterday": {
                 "max": round(daily["temperature_2m_max"][0]),
@@ -180,16 +192,17 @@ def get_balingup_bom():
                 "code": daily["weathercode"][1],
                 "max": round(daily["temperature_2m_max"][1]),
                 "min": round(daily["temperature_2m_min"][1]),
-                "rain_sum": daily.get("precipitation_sum", [0, 0, 0])[1] or 0.0,
-                "rain_prob": daily.get("precipitation_probability_max", [0, 0, 0])[1] or 0,
+                "rain_sum": daily.get("precipitation_sum", [0]*8)[1] or 0.0,
+                "rain_prob": daily.get("precipitation_probability_max", [0]*8)[1] or 0,
             },
             "tomorrow": {
                 "code": daily["weathercode"][2],
                 "max": round(daily["temperature_2m_max"][2]),
                 "min": round(daily["temperature_2m_min"][2]),
-                "rain_sum": daily.get("precipitation_sum", [0, 0, 0])[2] or 0.0,
-                "rain_prob": daily.get("precipitation_probability_max", [0, 0, 0])[2] or 0,
-            }
+                "rain_sum": daily.get("precipitation_sum", [0]*8)[2] or 0.0,
+                "rain_prob": daily.get("precipitation_probability_max", [0]*8)[2] or 0,
+            },
+            "next_5_days": upcoming_5_days
         }
     except Exception as e:
         log(f"BOM error: {e}")
@@ -219,6 +232,7 @@ font_title = load_font(16)
 font_card_head = load_font(12)
 font_sub = load_font(12)
 font_small = load_font(10)
+font_tiny_bold = load_font(9)
 
 def draw_weather_icon(draw_obj, code, x, y):
     if code in [0, 1]:  # Sun
@@ -242,6 +256,30 @@ def draw_weather_icon(draw_obj, code, x, y):
         draw_obj.rectangle([x+14, y+20, x+36, y+34], fill=0)
         for rx in [x+12, x+22, x+32]:
             draw_obj.line([(rx, y+36), (rx-3, y+44)], fill=0, width=2)
+
+def draw_mini_weather_icon(draw_obj, code, x, y):
+    # Compact icon for the 5-day row
+    if code in [0, 1]:  # Sun
+        draw_obj.ellipse([x+6, y+6, x+22, y+22], fill=0)
+        for p1, p2 in [
+            ((x+14, y+1), (x+14, y+4)), ((x+14, y+24), (x+14, y+27)),
+            ((x+1, y+14), (x+4, y+14)), ((x+24, y+14), (x+27, y+14)),
+            ((x+4, y+4), (x+7, y+7)), ((x+21, y+21), (x+24, y+24)),
+            ((x+4, y+24), (x+7, y+21)), ((x+21, y+7), (x+24, y+4))
+        ]:
+            draw_obj.line([p1, p2], fill=0, width=1)
+    elif code in [2, 3]:  # Clouds
+        draw_obj.ellipse([x+9, y+6, x+23, y+20], fill=0)
+        draw_obj.ellipse([x+3, y+11, x+15, y+23], fill=0)
+        draw_obj.ellipse([x+13, y+10, x+27, y+23], fill=0)
+        draw_obj.rectangle([x+9, y+15, x+22, y+23], fill=0)
+    else:  # Rain
+        draw_obj.ellipse([x+9, y+4, x+23, y+17], fill=0)
+        draw_obj.ellipse([x+3, y+8, x+15, y+20], fill=0)
+        draw_obj.ellipse([x+13, y+7, x+27, y+20], fill=0)
+        draw_obj.rectangle([x+9, y+12, x+22, y+20], fill=0)
+        for rx in [x+8, x+14, x+20]:
+            draw_obj.line([(rx, y+22), (rx-2, y+27)], fill=0, width=1)
 
 # --- TOP STATUS BAR ---
 draw.rounded_rectangle([(12, 10), (WIDTH - 12, 48)], radius=19, outline=0, width=2)
@@ -337,20 +375,33 @@ draw.text((472, 274), "BALINGUP WEATHER FORECAST BOM", font=font_card_head, fill
 
 if bom:
     # Today's forecast block
-    draw_weather_icon(draw, bom["today"]["code"], 460, 308)
-    draw.text((518, 306), f"TODAY  Max {bom['today']['max']}° | Min {bom['today']['min']}°", font=font_sub, fill=0)
-    draw.text((518, 326), f"Precip: {bom['today']['rain_prob']}% ({bom['today']['rain_sum']} mm)", font=font_small, fill=0)
-
-    # Divider line
-    for dx in range(460, WIDTH - 24, 6):
-        draw.point((dx, 368), fill=0)
+    draw_weather_icon(draw, bom["today"]["code"], 458, 302)
+    draw.text((514, 302), f"TODAY  Max {bom['today']['max']}° | Min {bom['today']['min']}°", font=font_sub, fill=0)
+    draw.text((514, 320), f"Precip: {bom['today']['rain_prob']}% ({bom['today']['rain_sum']} mm)", font=font_small, fill=0)
 
     # Tomorrow's forecast block
-    draw_weather_icon(draw, bom["tomorrow"]["code"], 460, 388)
-    draw.text((518, 386), f"TOMORROW  Max {bom['tomorrow']['max']}° | Min {bom['tomorrow']['min']}°", font=font_sub, fill=0)
-    draw.text((518, 406), f"Precip: {bom['tomorrow']['rain_prob']}% ({bom['tomorrow']['rain_sum']} mm)", font=font_small, fill=0)
+    draw_weather_icon(draw, bom["tomorrow"]["code"], 458, 350)
+    draw.text((514, 350), f"TOMORROW  Max {bom['tomorrow']['max']}° | Min {bom['tomorrow']['min']}°", font=font_sub, fill=0)
+    draw.text((514, 368), f"Precip: {bom['tomorrow']['rain_prob']}% ({bom['tomorrow']['rain_sum']} mm)", font=font_small, fill=0)
+
+    # Dotted divider line above 5-day strip
+    for dx in range(460, WIDTH - 24, 6):
+        draw.point((dx, 398), fill=0)
+
+    # 5-Day Strip at the bottom
+    col_width = (WIDTH - 24 - 460) // 5
+    for i, item in enumerate(bom.get("next_5_days", [])):
+        col_x = 460 + (i * col_width)
+        center_x = col_x + (col_width // 2)
+
+        # Mini icon centered
+        draw_mini_weather_icon(draw, item["code"], center_x - 14, 408)
+        
+        # Day name centered below symbol
+        day_text = item["day_name"]
+        draw.text((center_x - 11, 442), day_text, font=font_tiny_bold, fill=0)
 else:
     draw.text((460, 310), "Forecast unavailable", font=font_sub, fill=0)
 
 img.save("dashboard.png", "PNG")
-log("Saved customized dashboard successfully!")
+log("Saved dashboard with 5-day forecast row successfully!")
