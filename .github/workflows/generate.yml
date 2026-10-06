@@ -1,0 +1,38 @@
+name: Generate Daily Dashboard
+
+on:
+  schedule:
+    # 21:00 UTC = 5:00 AM AWST (Western Australia Standard Time)
+    - cron: '0 21 * * *'
+  workflow_dispatch: # Adds a manual "Run" button so you can trigger it whenever you want!
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install Dependencies
+        run: |
+          pip install -r requirements.txt
+
+      - name: Run Script to Render Dashboard
+        run: |
+          python render.py
+
+      - name: Commit and Push Image
+        run: |
+          git config --global user.name "github-actions[bot]"
+          git config --global user.email "github-actions[bot]@users.noreply.github.com"
+          git add dashboard.png
+          git commit -m "Update dashboard preview [skip ci]" || echo "No changes"
+          git push
