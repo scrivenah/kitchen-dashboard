@@ -165,6 +165,7 @@ def get_balingup_bom():
         "https://api.open-meteo.com/v1/forecast?"
         "latitude=-33.7865&longitude=115.9838&"
         "daily=weathercode,temperature_2m_max,temperature_2m_min,precipitation_sum,precipitation_probability_max&"
+        "models=bom_access_global&"
         "past_days=1&forecast_days=7&"
         "timezone=Australia%2FPerth"
     )
