@@ -34,7 +34,7 @@ jobs:
           ECOWITT_MAC: ${{ secrets.ECOWITT_MAC }}
           CALENDAR_ICS_URLS: ${{ secrets.CALENDAR_ICS_URLS }}
         run: |
-          python render.py
+          python -u render.py
 
       - name: Commit Dashboard Image
         uses: stefanzweifel/git-auto-commit-action@v5
