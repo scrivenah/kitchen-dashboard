@@ -10,7 +10,27 @@ WIDTH, HEIGHT = 800, 480
 def log(msg):
     print(f"LOG: {msg}", flush=True)
 
-# --- 1. GOOGLE & AIRBNB CALENDAR FETCHER ---
+# --- COLOR PALETTE (Material You / Android 16 Theme) ---
+COLOR_BG = (248, 249, 250)         # Soft porcelain white
+COLOR_CARD = (255, 255, 255)       # Card background
+COLOR_BORDER = (220, 224, 230)     # Clean hairline borders
+COLOR_TEXT_DARK = (28, 30, 33)     # Primary charcoal text
+COLOR_TEXT_MUTED = (108, 115, 125) # Secondary grey text
+COLOR_ACCENT = (41, 98, 255)       # Primary vibrant blue
+
+# Event Category Accents
+COLOR_WORK = (26, 115, 232)        # Blue
+COLOR_AIRBNB = (224, 86, 76)       # Coral
+COLOR_FAMILY = (30, 142, 62)       # Green
+COLOR_HOLIDAY = (227, 116, 0)      # Amber / Orange
+
+# Weather Art Colors
+COLOR_SUN = (245, 158, 11)         # Golden amber
+COLOR_CLOUD_LIGHT = (203, 213, 225)# Slate cloud fill
+COLOR_CLOUD_DARK = (148, 163, 184) # Cloud outline
+COLOR_RAIN = (59, 130, 246)        # Water blue
+
+# --- 1. CALENDAR FETCHER WITH AUTO-COLORING ---
 def get_calendar_events():
     ics_urls = os.environ.get("CALENDAR_ICS_URLS", "")
     if not ics_urls:
@@ -28,6 +48,18 @@ def get_calendar_events():
 
     for idx, url in enumerate(url_list):
         is_airbnb = "airbnb" in url.lower()
+        is_holiday = "41p9gaols1it9m" in url.lower()
+
+        # Determine category & color accent
+        if is_airbnb:
+            category_color = COLOR_AIRBNB
+        elif is_holiday:
+            category_color = COLOR_HOLIDAY
+        elif idx == 0:
+            category_color = COLOR_FAMILY
+        else:
+            category_color = COLOR_WORK
+
         headers = {'User-Agent': 'Mozilla/5.0'}
         try:
             res = requests.get(url, headers=headers, timeout=12)
@@ -38,7 +70,7 @@ def get_calendar_events():
             for component in cal.walk():
                 if component.name == "VEVENT":
                     summary = str(component.get("summary", "Untitled"))
-                    if is_airbnb and summary == "Reserved":
+                    if is_airbnb and "reserved" in summary.lower():
                         summary = "Vic's Shack Reserved"
 
                     dtstart_prop = component.get("dtstart")
@@ -74,6 +106,7 @@ def get_calendar_events():
                         active_dates.append(curr)
                         curr += datetime.timedelta(days=1)
 
+                    # Expand RRULEs
                     rrule_prop = component.get("rrule")
                     if rrule_prop:
                         try:
@@ -94,23 +127,29 @@ def get_calendar_events():
                         except Exception:
                             pass
 
+                    # Assign Work shift color dynamically by summary if needed
+                    event_color = category_color
+                    if "work" in summary.lower():
+                        event_color = COLOR_WORK
+
                     for d in set(active_dates):
                         if today <= d <= future_cutoff:
-                            raw_events.append((d, time_str, summary))
+                            raw_events.append((d, time_str, summary, event_color))
 
         except Exception as e:
             log(f"Feed error: {e}")
 
-    unique_events = list({(e[0], e[1], e[2]): e for e in raw_events}.values())
-    unique_events.sort(key=lambda x: (x[0], 0 if x[1] == "" else 1, x[1]))
+    # Deduplicate
+    unique = list({(e[0], e[1], e[2]): e for e in raw_events}.values())
+    unique.sort(key=lambda x: (x[0], 0 if x[1] == "" else 1, x[1]))
 
-    today_events = [e for e in unique_events if e[0] == today]
-    tomorrow_events = [e for e in unique_events if e[0] == tomorrow]
-    later_events = [e for e in unique_events if e[0] > tomorrow]
+    today_events = [e for e in unique if e[0] == today]
+    tomorrow_events = [e for e in unique if e[0] == tomorrow]
+    later_events = [e for e in unique if e[0] > tomorrow]
 
     return today_events, tomorrow_events, later_events
 
-# --- 2. ECOWITT DATA FETCHER ---
+# --- 2. ECOWITT SENSOR FETCHER ---
 def get_ecowitt_data():
     app_key = os.environ.get("ECOWITT_APPLICATION_KEY")
     api_key = os.environ.get("ECOWITT_API_KEY")
@@ -159,7 +198,7 @@ def get_ecowitt_data():
         log(f"Ecowitt error: {e}")
         return None
 
-# --- 3. BOM FORECAST FETCHER (7-DAY OUTLOOK) ---
+# --- 3. BOM ACCESS FORECAST FETCHER ---
 def get_balingup_bom():
     url = (
         "https://api.open-meteo.com/v1/forecast?"
@@ -174,8 +213,6 @@ def get_balingup_bom():
         daily = res["daily"]
         dates = [datetime.datetime.strptime(d, "%Y-%m-%d").date() for d in daily["time"]]
 
-        # Index 0 is Yesterday, Index 1 is Today, Index 2 is Tomorrow
-        # Indices 3 to 7 are the subsequent 5 days
         upcoming_5_days = []
         for i in range(3, min(8, len(dates))):
             upcoming_5_days.append({
@@ -213,8 +250,8 @@ today_events, tomorrow_events, later_events = get_calendar_events()
 ecowitt = get_ecowitt_data()
 bom = get_balingup_bom()
 
-# --- 4. RENDER CANVAS ---
-img = Image.new('1', (WIDTH, HEIGHT), 255)
+# --- 4. RENDER ENGINE (RGB) ---
+img = Image.new('RGB', (WIDTH, HEIGHT), COLOR_BG)
 draw = ImageDraw.Draw(img)
 
 def load_font(size):
@@ -228,181 +265,163 @@ def load_font(size):
             return ImageFont.truetype(p, size)
     return ImageFont.load_default()
 
-font_hero = load_font(42)
+font_hero = load_font(44)
 font_title = load_font(16)
 font_card_head = load_font(12)
 font_sub = load_font(12)
 font_small = load_font(10)
-font_tiny_bold = load_font(9)
+font_tiny = load_font(9)
 
-def draw_weather_icon(draw_obj, code, x, y):
+def draw_color_weather_icon(draw_obj, code, x, y):
     if code in [0, 1]:  # Sun
-        draw_obj.ellipse([x+8, y+8, x+36, y+36], fill=0)
+        draw_obj.ellipse([x+8, y+8, x+36, y+36], fill=COLOR_SUN)
         for p1, p2 in [
-            ((x+22, y), (x+22, y+6)), ((x+22, y+38), (x+22, y+44)),
-            ((x, y+22), (x+6, y+22)), ((x+38, y+22), (x+44, y+22)),
-            ((x+6, y+6), (x+11, y+11)), ((x+33, y+33), (x+38, y+38)),
-            ((x+6, y+38), (x+11, y+33)), ((x+33, y+11), (x+38, y+6))
+            ((x+22, y), (x+22, y+5)), ((x+22, y+39), (x+22, y+44)),
+            ((x, y+22), (x+5, y+22)), ((x+39, y+22), (x+44, y+22)),
+            ((x+6, y+6), (x+10, y+10)), ((x+34, y+34), (x+38, y+38)),
+            ((x+6, y+38), (x+10, y+34)), ((x+34, y+10), (x+38, y+6))
         ]:
-            draw_obj.line([p1, p2], fill=0, width=2)
+            draw_obj.line([p1, p2], fill=COLOR_SUN, width=2)
     elif code in [2, 3]:  # Clouds
-        draw_obj.ellipse([x+14, y+10, x+38, y+34], fill=0)
-        draw_obj.ellipse([x+4, y+18, x+24, y+38], fill=0)
-        draw_obj.ellipse([x+20, y+16, x+44, y+38], fill=0)
-        draw_obj.rectangle([x+14, y+24, x+36, y+38], fill=0)
+        draw_obj.ellipse([x+14, y+10, x+38, y+34], fill=COLOR_CLOUD_LIGHT, outline=COLOR_CLOUD_DARK)
+        draw_obj.ellipse([x+4, y+18, x+24, y+38], fill=COLOR_CLOUD_LIGHT, outline=COLOR_CLOUD_DARK)
+        draw_obj.ellipse([x+20, y+16, x+44, y+38], fill=COLOR_CLOUD_LIGHT, outline=COLOR_CLOUD_DARK)
+        draw_obj.rectangle([x+14, y+24, x+36, y+38], fill=COLOR_CLOUD_LIGHT)
     else:  # Rain
-        draw_obj.ellipse([x+14, y+6, x+38, y+30], fill=0)
-        draw_obj.ellipse([x+4, y+14, x+24, y+34], fill=0)
-        draw_obj.ellipse([x+20, y+12, x+44, y+34], fill=0)
-        draw_obj.rectangle([x+14, y+20, x+36, y+34], fill=0)
+        draw_obj.ellipse([x+14, y+6, x+38, y+30], fill=COLOR_CLOUD_LIGHT, outline=COLOR_CLOUD_DARK)
+        draw_obj.ellipse([x+4, y+14, x+24, y+34], fill=COLOR_CLOUD_LIGHT, outline=COLOR_CLOUD_DARK)
+        draw_obj.ellipse([x+20, y+12, x+44, y+34], fill=COLOR_CLOUD_LIGHT, outline=COLOR_CLOUD_DARK)
+        draw_obj.rectangle([x+14, y+20, x+36, y+34], fill=COLOR_CLOUD_LIGHT)
         for rx in [x+12, x+22, x+32]:
-            draw_obj.line([(rx, y+36), (rx-3, y+44)], fill=0, width=2)
+            draw_obj.line([(rx, y+36), (rx-3, y+44)], fill=COLOR_RAIN, width=2)
 
-def draw_mini_weather_icon(draw_obj, code, x, y):
-    # Compact icon for the 5-day row
+def draw_mini_color_icon(draw_obj, code, x, y):
     if code in [0, 1]:  # Sun
-        draw_obj.ellipse([x+6, y+6, x+22, y+22], fill=0)
-        for p1, p2 in [
-            ((x+14, y+1), (x+14, y+4)), ((x+14, y+24), (x+14, y+27)),
-            ((x+1, y+14), (x+4, y+14)), ((x+24, y+14), (x+27, y+14)),
-            ((x+4, y+4), (x+7, y+7)), ((x+21, y+21), (x+24, y+24)),
-            ((x+4, y+24), (x+7, y+21)), ((x+21, y+7), (x+24, y+4))
-        ]:
-            draw_obj.line([p1, p2], fill=0, width=1)
+        draw_obj.ellipse([x+6, y+6, x+22, y+22], fill=COLOR_SUN)
     elif code in [2, 3]:  # Clouds
-        draw_obj.ellipse([x+9, y+6, x+23, y+20], fill=0)
-        draw_obj.ellipse([x+3, y+11, x+15, y+23], fill=0)
-        draw_obj.ellipse([x+13, y+10, x+27, y+23], fill=0)
-        draw_obj.rectangle([x+9, y+15, x+22, y+23], fill=0)
+        draw_obj.ellipse([x+8, y+8, x+22, y+22], fill=COLOR_CLOUD_LIGHT, outline=COLOR_CLOUD_DARK)
+        draw_obj.ellipse([x+2, y+12, x+14, y+24], fill=COLOR_CLOUD_LIGHT, outline=COLOR_CLOUD_DARK)
+        draw_obj.rectangle([x+6, y+16, x+18, y+24], fill=COLOR_CLOUD_LIGHT)
     else:  # Rain
-        draw_obj.ellipse([x+9, y+4, x+23, y+17], fill=0)
-        draw_obj.ellipse([x+3, y+8, x+15, y+20], fill=0)
-        draw_obj.ellipse([x+13, y+7, x+27, y+20], fill=0)
-        draw_obj.rectangle([x+9, y+12, x+22, y+20], fill=0)
+        draw_obj.ellipse([x+6, y+4, x+20, y+18], fill=COLOR_CLOUD_LIGHT, outline=COLOR_CLOUD_DARK)
         for rx in [x+8, x+14, x+20]:
-            draw_obj.line([(rx, y+22), (rx-2, y+27)], fill=0, width=1)
+            draw_obj.line([(rx, y+20), (rx-2, y+25)], fill=COLOR_RAIN, width=1)
 
-# --- TOP STATUS BAR ---
-draw.rounded_rectangle([(12, 10), (WIDTH - 12, 48)], radius=19, outline=0, width=2)
+# --- TOP STATUS BAR (HEADER) ---
+draw.rounded_rectangle([(12, 10), (WIDTH - 12, 48)], radius=19, fill=COLOR_CARD, outline=COLOR_BORDER, width=1)
 tz_wa = datetime.timezone(datetime.timedelta(hours=8))
 now_wa = datetime.datetime.now(tz_wa)
 date_str = now_wa.strftime("%A, %d %B %Y").upper()
 time_now_str = now_wa.strftime("%I:%M %p").lstrip('0')
-draw.text((28, 20), "BALINGUP DASHBOARD", font=font_title, fill=0)
-draw.text((WIDTH - 230, 23), date_str, font=font_small, fill=0)
+
+draw.text((28, 20), "BALINGUP DASHBOARD", font=font_title, fill=COLOR_TEXT_DARK)
+draw.text((WIDTH - 230, 23), date_str, font=font_small, fill=COLOR_TEXT_MUTED)
 
 # --- LEFT COLUMN: AGENDA ---
 # Card 1: Today & Tomorrow
-draw.rounded_rectangle([(12, 58), (435, 335)], radius=22, outline=0, width=2)
+draw.rounded_rectangle([(12, 58), (435, 335)], radius=22, fill=COLOR_CARD, outline=COLOR_BORDER, width=1)
 
 # Section: TODAY
-draw.rounded_rectangle([(24, 70), (105, 92)], radius=11, outline=0, width=1)
-draw.text((36, 74), "TODAY", font=font_card_head, fill=0)
+draw.rounded_rectangle([(24, 70), (105, 92)], radius=11, fill=COLOR_BG, outline=COLOR_BORDER, width=1)
+draw.text((36, 74), "TODAY", font=font_card_head, fill=COLOR_TEXT_DARK)
 
 y_cursor = 100
 if today_events:
-    for _, t_str, summ in today_events[:4]:
-        label = f"• {summ}" if not t_str else f"• {t_str} - {summ}"
-        label = label[:38] + "..." if len(label) > 40 else label
-        draw.text((28, y_cursor), label, font=font_sub, fill=0)
+    for _, t_str, summ, ev_color in today_events[:4]:
+        # Colored dot indicator
+        draw.ellipse([28, y_cursor + 4, 34, y_cursor + 10], fill=ev_color)
+        label = summ if not t_str else f"{t_str} - {summ}"
+        label = label[:36] + "..." if len(label) > 38 else label
+        draw.text((42, y_cursor), label, font=font_sub, fill=COLOR_TEXT_DARK)
         y_cursor += 20
 else:
-    draw.text((28, y_cursor), "• No events today", font=font_sub, fill=0)
+    draw.text((28, y_cursor), "No events scheduled today", font=font_sub, fill=COLOR_TEXT_MUTED)
     y_cursor += 20
 
 # Section: TOMORROW
 y_cursor = max(y_cursor + 6, 185)
-draw.rounded_rectangle([(24, y_cursor), (145, y_cursor + 22)], radius=11, outline=0, width=1)
-draw.text((36, y_cursor + 4), "TOMORROW", font=font_card_head, fill=0)
+draw.rounded_rectangle([(24, y_cursor), (145, y_cursor + 22)], radius=11, fill=COLOR_BG, outline=COLOR_BORDER, width=1)
+draw.text((36, y_cursor + 4), "TOMORROW", font=font_card_head, fill=COLOR_TEXT_DARK)
 y_cursor += 30
 
 if tomorrow_events:
-    for _, t_str, summ in tomorrow_events[:4]:
-        label = f"• {summ}" if not t_str else f"• {t_str} - {summ}"
-        label = label[:38] + "..." if len(label) > 40 else label
-        draw.text((28, y_cursor), label, font=font_sub, fill=0)
+    for _, t_str, summ, ev_color in tomorrow_events[:4]:
+        draw.ellipse([28, y_cursor + 4, 34, y_cursor + 10], fill=ev_color)
+        label = summ if not t_str else f"{t_str} - {summ}"
+        label = label[:36] + "..." if len(label) > 38 else label
+        draw.text((42, y_cursor), label, font=font_sub, fill=COLOR_TEXT_DARK)
         y_cursor += 20
 else:
-    draw.text((28, y_cursor), "• No events tomorrow", font=font_sub, fill=0)
+    draw.text((28, y_cursor), "No events scheduled tomorrow", font=font_sub, fill=COLOR_TEXT_MUTED)
 
 # Card 2: Looking Ahead
-draw.rounded_rectangle([(12, 345), (435, 468)], radius=20, outline=0, width=2)
-draw.rounded_rectangle([(24, 355), (160, 375)], radius=10, outline=0, width=1)
-draw.text((34, 358), "LOOKING AHEAD", font=font_small, fill=0)
+draw.rounded_rectangle([(12, 345), (435, 468)], radius=20, fill=COLOR_CARD, outline=COLOR_BORDER, width=1)
+draw.rounded_rectangle([(24, 355), (160, 375)], radius=10, fill=COLOR_BG, outline=COLOR_BORDER, width=1)
+draw.text((34, 358), "LOOKING AHEAD", font=font_small, fill=COLOR_TEXT_DARK)
 
 y_ahead = 385
 if later_events:
-    for d, t_str, summ in later_events[:3]:
+    for d, t_str, summ, ev_color in later_events[:3]:
         day_tag = d.strftime("%a %d")
+        draw.ellipse([28, y_ahead + 4, 34, y_ahead + 10], fill=ev_color)
         ahead_label = f"{day_tag}: {summ}"
-        ahead_label = ahead_label[:38] + "..." if len(ahead_label) > 40 else ahead_label
-        draw.text((28, y_ahead), ahead_label, font=font_sub, fill=0)
+        ahead_label = ahead_label[:36] + "..." if len(ahead_label) > 38 else ahead_label
+        draw.text((42, y_ahead), ahead_label, font=font_sub, fill=COLOR_TEXT_DARK)
         y_ahead += 22
 else:
-    draw.text((28, y_ahead), "No upcoming events this week.", font=font_sub, fill=0)
+    draw.text((28, y_ahead), "No upcoming events this week.", font=font_sub, fill=COLOR_TEXT_MUTED)
 
 # --- RIGHT COLUMN: WEATHER WIDGETS ---
-# Card 3: Weather Station (447, 58) to (WIDTH - 12, 250)
-draw.rounded_rectangle([(447, 58), (WIDTH - 12, 250)], radius=22, outline=0, width=2)
-draw.rounded_rectangle([(460, 68), (610, 90)], radius=11, outline=0, width=1)
-draw.text((472, 72), "WEATHER STATION", font=font_card_head, fill=0)
+# Card 3: Weather Station
+draw.rounded_rectangle([(447, 58), (WIDTH - 12, 250)], radius=22, fill=COLOR_CARD, outline=COLOR_BORDER, width=1)
+draw.rounded_rectangle([(460, 68), (610, 90)], radius=11, fill=COLOR_BG, outline=COLOR_BORDER, width=1)
+draw.text((472, 72), "WEATHER STATION", font=font_card_head, fill=COLOR_TEXT_DARK)
 
 if ecowitt:
-    draw.text((462, 98), f"{ecowitt['temp_c']}°", font=font_hero, fill=0)
-    
-    # Humidity and Timestamp
-    draw.text((605, 102), f"HUMIDITY: {ecowitt['humidity']}%", font=font_sub, fill=0)
-    draw.text((605, 120), f"UPDATED {time_now_str}", font=font_small, fill=0)
+    draw.text((462, 98), f"{ecowitt['temp_c']}°", font=font_hero, fill=COLOR_TEXT_DARK)
+    draw.text((605, 102), f"HUMIDITY: {ecowitt['humidity']}%", font=font_sub, fill=COLOR_TEXT_DARK)
+    draw.text((605, 120), f"UPDATED {time_now_str}", font=font_small, fill=COLOR_TEXT_MUTED)
 
-    # Yesterday's High / Low
     if bom and "yesterday" in bom:
-        draw.text((462, 146), f"Yesterday: Max {bom['yesterday']['max']}°C | Min {bom['yesterday']['min']}°C", font=font_small, fill=0)
+        draw.text((462, 146), f"Yesterday: Max {bom['yesterday']['max']}°C | Min {bom['yesterday']['min']}°C", font=font_small, fill=COLOR_TEXT_MUTED)
 
-    # Dotted divider line
     for dx in range(460, WIDTH - 24, 6):
-        draw.point((dx, 166), fill=0)
+        draw.point((dx, 166), fill=COLOR_BORDER)
 
-    draw.text((462, 174), f"Rain 24h: {ecowitt['rain_24h']} mm", font=font_sub, fill=0)
-    draw.text((605, 174), f"Weekly: {ecowitt['rain_weekly']} mm", font=font_sub, fill=0)
-    draw.text((462, 198), f"Last Event: {ecowitt['rain_event']} mm", font=font_sub, fill=0)
-    draw.text((605, 198), "(Reset at 9 AM)", font=font_small, fill=0)
+    draw.text((462, 174), f"Rain 24h: {ecowitt['rain_24h']} mm", font=font_sub, fill=COLOR_TEXT_DARK)
+    draw.text((605, 174), f"Weekly: {ecowitt['rain_weekly']} mm", font=font_sub, fill=COLOR_TEXT_DARK)
+    draw.text((462, 198), f"Last Event: {ecowitt['rain_event']} mm", font=font_sub, fill=COLOR_TEXT_DARK)
+    draw.text((605, 198), "(Reset at 9 AM)", font=font_small, fill=COLOR_TEXT_MUTED)
 else:
-    draw.text((462, 110), "Sensors connecting...", font=font_sub, fill=0)
+    draw.text((462, 110), "Sensors connecting...", font=font_sub, fill=COLOR_TEXT_MUTED)
 
-# Card 4: Balingup Weather Forecast BOM (447, 260) to (WIDTH - 12, 468)
-draw.rounded_rectangle([(447, 260), (WIDTH - 12, 468)], radius=22, outline=0, width=2)
-draw.rounded_rectangle([(460, 270), (745, 292)], radius=11, outline=0, width=1)
-draw.text((472, 274), "BALINGUP WEATHER FORECAST BOM", font=font_card_head, fill=0)
+# Card 4: Balingup Weather Forecast BOM
+draw.rounded_rectangle([(447, 260), (WIDTH - 12, 468)], radius=22, fill=COLOR_CARD, outline=COLOR_BORDER, width=1)
+draw.rounded_rectangle([(460, 270), (745, 292)], radius=11, fill=COLOR_BG, outline=COLOR_BORDER, width=1)
+draw.text((472, 274), "BALINGUP WEATHER FORECAST BOM", font=font_card_head, fill=COLOR_TEXT_DARK)
 
 if bom:
-    # Today's forecast block
-    draw_weather_icon(draw, bom["today"]["code"], 458, 302)
-    draw.text((514, 302), f"TODAY  Max {bom['today']['max']}° | Min {bom['today']['min']}°", font=font_sub, fill=0)
-    draw.text((514, 320), f"Precip: {bom['today']['rain_prob']}% ({bom['today']['rain_sum']} mm)", font=font_small, fill=0)
+    draw_color_weather_icon(draw, bom["today"]["code"], 458, 302)
+    draw.text((514, 302), f"TODAY  Max {bom['today']['max']}° | Min {bom['today']['min']}°", font=font_sub, fill=COLOR_TEXT_DARK)
+    draw.text((514, 320), f"Precip: {bom['today']['rain_prob']}% ({bom['today']['rain_sum']} mm)", font=font_small, fill=COLOR_TEXT_MUTED)
 
-    # Tomorrow's forecast block
-    draw_weather_icon(draw, bom["tomorrow"]["code"], 458, 350)
-    draw.text((514, 350), f"TOMORROW  Max {bom['tomorrow']['max']}° | Min {bom['tomorrow']['min']}°", font=font_sub, fill=0)
-    draw.text((514, 368), f"Precip: {bom['tomorrow']['rain_prob']}% ({bom['tomorrow']['rain_sum']} mm)", font=font_small, fill=0)
+    draw_color_weather_icon(draw, bom["tomorrow"]["code"], 458, 350)
+    draw.text((514, 350), f"TOMORROW  Max {bom['tomorrow']['max']}° | Min {bom['tomorrow']['min']}°", font=font_sub, fill=COLOR_TEXT_DARK)
+    draw.text((514, 368), f"Precip: {bom['tomorrow']['rain_prob']}% ({bom['tomorrow']['rain_sum']} mm)", font=font_small, fill=COLOR_TEXT_MUTED)
 
-    # Dotted divider line above 5-day strip
     for dx in range(460, WIDTH - 24, 6):
-        draw.point((dx, 398), fill=0)
+        draw.point((dx, 398), fill=COLOR_BORDER)
 
-    # 5-Day Strip at the bottom
     col_width = (WIDTH - 24 - 460) // 5
     for i, item in enumerate(bom.get("next_5_days", [])):
         col_x = 460 + (i * col_width)
         center_x = col_x + (col_width // 2)
 
-        # Mini icon centered
-        draw_mini_weather_icon(draw, item["code"], center_x - 14, 408)
-        
-        # Day name centered below symbol
+        draw_mini_color_icon(draw, item["code"], center_x - 14, 408)
         day_text = item["day_name"]
-        draw.text((center_x - 11, 442), day_text, font=font_tiny_bold, fill=0)
+        draw.text((center_x - 11, 442), day_text, font=font_tiny, fill=COLOR_TEXT_DARK)
 else:
-    draw.text((460, 310), "Forecast unavailable", font=font_sub, fill=0)
+    draw.text((460, 310), "Forecast unavailable", font=font_sub, fill=COLOR_TEXT_MUTED)
 
 img.save("dashboard.png", "PNG")
-log("Saved dashboard with 5-day forecast row successfully!")
+log("Saved Full-Color Modern Dashboard successfully!")
