@@ -1,6 +1,7 @@
 import os
 import requests
 import datetime
+from dateutil import rrule
 from icalendar import Calendar
 from PIL import Image, ImageDraw, ImageFont
 
@@ -10,34 +11,25 @@ WIDTH, HEIGHT = 800, 480
 def get_calendar_events():
     ics_urls = os.environ.get("CALENDAR_ICS_URLS", "")
     if not ics_urls:
-        print("DEBUG: No CALENDAR_ICS_URLS found in environment.")
         return []
 
-    # WA Timezone (UTC+8)
     tz_wa = datetime.timezone(datetime.timedelta(hours=8))
     now_wa = datetime.datetime.now(tz_wa)
     today = now_wa.date()
     tomorrow = today + datetime.timedelta(days=1)
 
-    print(f"DEBUG: Checking for Today ({today}) and Tomorrow ({tomorrow})")
-
     url_list = [u.strip() for u in ics_urls.split(",") if u.strip()]
-    print(f"DEBUG: Found {len(url_list)} calendar URL(s) to scan.")
-
     events = []
 
-    for i, url in enumerate(url_list):
+    for url in url_list:
         try:
             res = requests.get(url, timeout=12)
             if res.status_code != 200:
-                print(f"DEBUG: URL #{i+1} returned HTTP {res.status_code}")
                 continue
             
             cal = Calendar.from_ical(res.text)
-            event_count = 0
             for component in cal.walk():
                 if component.name == "VEVENT":
-                    event_count += 1
                     summary = str(component.get("summary", "Untitled"))
                     dtstart_prop = component.get("dtstart")
                     if not dtstart_prop:
@@ -47,47 +39,52 @@ def get_calendar_events():
                     dtend_prop = component.get("dtend")
                     dtend = dtend_prop.dt if dtend_prop else dtstart
 
-                    # Convert start to local date & time label
-                    if isinstance(dtstart, datetime.datetime):
+                    # Normalize start & end to date + time string
+                    is_all_day = not isinstance(dtstart, datetime.datetime)
+                    if not is_all_day:
                         dtstart_local = dtstart.astimezone(tz_wa)
+                        dtend_local = dtend.astimezone(tz_wa) if isinstance(dtend, datetime.datetime) else dtstart_local
                         start_date = dtstart_local.date()
-                        time_str = dtstart_local.strftime("%I:%M %p").lstrip('0')
-                    elif isinstance(dtstart, datetime.date):
-                        start_date = dtstart
-                        time_str = "All Day"
-                    else:
-                        continue
-
-                    # Convert end to local date
-                    if isinstance(dtend, datetime.datetime):
-                        dtend_local = dtend.astimezone(tz_wa)
                         end_date = dtend_local.date()
-                    elif isinstance(dtend, datetime.date):
-                        end_date = dtend
+                        time_str = dtstart_local.strftime("%I:%M %p").lstrip('0')
                     else:
-                        end_date = start_date
+                        start_date = dtstart
+                        end_date = dtend if isinstance(dtend, datetime.date) else dtstart
+                        time_str = "All Day"
 
-                    # For all-day events, iCal end date is exclusive
-                    if time_str == "All Day" and end_date > start_date:
+                    # Exclusive end date adjustment for all-day events
+                    if is_all_day and end_date > start_date:
                         effective_end = end_date - datetime.timedelta(days=1)
                     else:
                         effective_end = end_date
 
-                    # Match Today
-                    if start_date <= today <= effective_end:
-                        print(f"DEBUG: MATCHED TODAY -> '{summary}' ({time_str})")
+                    # Handle Recurrence Rules (RRULE)
+                    rrule_prop = component.get("rrule")
+                    occurrences = []
+                    if rrule_prop:
+                        try:
+                            rule_str = rrule_prop.to_ical().decode("utf-8")
+                            rule_obj = rrule.rrulestr(rule_str, dtstart=start_date)
+                            # Check window for today and tomorrow
+                            window_start = datetime.datetime.combine(today, datetime.time.min)
+                            window_end = datetime.datetime.combine(tomorrow, datetime.time.max)
+                            for occ in rule_obj.between(window_start, window_end, inc=True):
+                                occurrences.append(occ.date())
+                        except Exception:
+                            pass
+
+                    # Check TODAY
+                    if (start_date <= today <= effective_end) or (today in occurrences):
                         events.append((today, time_str, summary, "TODAY"))
-                    # Match Tomorrow
-                    elif start_date <= tomorrow <= effective_end:
-                        print(f"DEBUG: MATCHED TOMORROW -> '{summary}' ({time_str})")
+
+                    # Check TOMORROW (separate check, not elif!)
+                    if (start_date <= tomorrow <= effective_end) or (tomorrow in occurrences):
                         events.append((tomorrow, time_str, summary, "TOMORROW"))
 
-            print(f"DEBUG: URL #{i+1} processed {event_count} total events.")
-
         except Exception as e:
-            print(f"DEBUG: Error reading URL #{i+1}: {e}")
+            print(f"Error reading calendar feed: {e}")
 
-    # Deduplicate while preserving order
+    # Deduplicate
     seen = set()
     deduped = []
     for ev in events:
@@ -289,4 +286,4 @@ else:
     draw.text((444, 280), "Forecast unavailable", font=font_sub, fill=0)
 
 img.save("dashboard.png", "PNG")
-print("Saved complete dashboard preview with live Google Calendar!")
+print("Saved complete dashboard preview with recurring and multi-day calendar support!")
