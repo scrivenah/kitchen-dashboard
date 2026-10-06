@@ -10,41 +10,37 @@ WIDTH, HEIGHT = 800, 480
 def log(msg):
     print(f"LOG: {msg}", flush=True)
 
-# --- 1. GOOGLE CALENDAR FETCHER & PARSER ---
+# --- 1. GOOGLE & AIRBNB CALENDAR FETCHER ---
 def get_calendar_events():
     ics_urls = os.environ.get("CALENDAR_ICS_URLS", "")
     if not ics_urls:
         log("No CALENDAR_ICS_URLS found in environment.")
-        return []
+        return [], [], []
 
-    # AWST is UTC+8
     tz_wa = datetime.timezone(datetime.timedelta(hours=8))
     now_wa = datetime.datetime.now(tz_wa)
     today = now_wa.date()
     tomorrow = today + datetime.timedelta(days=1)
-
-    log(f"Current AWST date: {today} | Tomorrow: {tomorrow}")
+    future_cutoff = today + datetime.timedelta(days=6)
 
     url_list = [u.strip() for u in ics_urls.split(",") if u.strip()]
-    log(f"Total calendar URLs provided: {len(url_list)}")
-
-    events = []
+    raw_events = []
 
     for idx, url in enumerate(url_list):
-        safe_url = url[:40] + "..."
+        is_airbnb = "airbnb" in url.lower()
+        headers = {'User-Agent': 'Mozilla/5.0'}
         try:
-            headers = {'User-Agent': 'Mozilla/5.0'}
             res = requests.get(url, headers=headers, timeout=12)
-            log(f"[Feed #{idx+1}] HTTP {res.status_code} ({safe_url})")
             if res.status_code != 200:
                 continue
 
             cal = Calendar.from_ical(res.text)
-            count = 0
             for component in cal.walk():
                 if component.name == "VEVENT":
-                    count += 1
                     summary = str(component.get("summary", "Untitled"))
+                    if is_airbnb and summary == "Reserved":
+                        summary = "[COTTAGE] Reserved"
+
                     dtstart_prop = component.get("dtstart")
                     if not dtstart_prop:
                         continue
@@ -53,7 +49,6 @@ def get_calendar_events():
                     dtend_prop = component.get("dtend")
                     dtend = dtend_prop.dt if dtend_prop else dtstart
 
-                    # Determine time string and duration
                     is_all_day = not isinstance(dtstart, datetime.datetime)
                     if not is_all_day:
                         dtstart_local = dtstart.astimezone(tz_wa)
@@ -65,25 +60,20 @@ def get_calendar_events():
                     else:
                         base_start_date = dtstart
                         base_end_date = dtend if isinstance(dtend, datetime.date) else dtstart
-                        time_str = "All Day"
+                        time_str = ""  # Clean look: no "All Day" clutter
                         duration = base_end_date - base_start_date
 
-                    # Handle all-day exclusive end date
                     if is_all_day and base_end_date > base_start_date:
                         effective_end = base_end_date - datetime.timedelta(days=1)
                     else:
                         effective_end = base_end_date
 
-                    # Build active dates list
                     active_dates = []
-
-                    # 1. Spanning check for standard events
                     curr = base_start_date
                     while curr <= effective_end:
                         active_dates.append(curr)
                         curr += datetime.timedelta(days=1)
 
-                    # 2. Expand RRULE recurrence rules
                     rrule_prop = component.get("rrule")
                     if rrule_prop:
                         try:
@@ -92,7 +82,7 @@ def get_calendar_events():
                             parsed_rule = drrule.rrulestr(rule_str, dtstart=rule_start)
 
                             check_start = datetime.datetime.combine(today - datetime.timedelta(days=7), datetime.time.min)
-                            check_end = datetime.datetime.combine(tomorrow + datetime.timedelta(days=7), datetime.time.max)
+                            check_end = datetime.datetime.combine(future_cutoff + datetime.timedelta(days=1), datetime.time.max)
 
                             for occ in parsed_rule.between(check_start, check_end, inc=True):
                                 occ_date = occ.date()
@@ -104,32 +94,22 @@ def get_calendar_events():
                         except Exception:
                             pass
 
-                    # Match for TODAY
-                    if today in active_dates:
-                        log(f"     *** ADDED TO TODAY: {summary} ({time_str})")
-                        events.append((today, time_str, summary, "TODAY"))
+                    for d in set(active_dates):
+                        if today <= d <= future_cutoff:
+                            raw_events.append((d, time_str, summary))
 
-                    # Match for TOMORROW
-                    if tomorrow in active_dates:
-                        log(f"     *** ADDED TO TOMORROW: {summary} ({time_str})")
-                        events.append((tomorrow, time_str, summary, "TOMORROW"))
-
-            log(f"[Feed #{idx+1}] Evaluated {count} total events.")
         except Exception as e:
-            log(f"[Feed #{idx+1}] Exception: {e}")
+            log(f"Feed error: {e}")
 
-    # Deduplicate while preserving order
-    seen = set()
-    deduped = []
-    for ev in events:
-        key = (ev[0], ev[1], ev[2], ev[3])
-        if key not in seen:
-            seen.add(key)
-            deduped.append(ev)
+    # Deduplicate
+    unique_events = list({(e[0], e[1], e[2]): e for e in raw_events}.values())
+    unique_events.sort(key=lambda x: (x[0], 0 if x[1] == "" else 1, x[1]))
 
-    # Sort: Today first, All Day first, then by time
-    deduped.sort(key=lambda x: (x[0], 0 if x[1] == "All Day" else 1, x[1]))
-    return deduped
+    today_events = [e for e in unique_events if e[0] == today]
+    tomorrow_events = [e for e in unique_events if e[0] == tomorrow]
+    later_events = [e for e in unique_events if e[0] > tomorrow]
+
+    return today_events, tomorrow_events, later_events
 
 # --- 2. ECOWITT DATA FETCHER ---
 def get_ecowitt_data():
@@ -211,11 +191,11 @@ def get_balingup_bom():
         log(f"BOM error: {e}")
         return None
 
-calendar_events = get_calendar_events()
+# --- 4. RENDER CANVAS & MATERIAL YOU STYLING ---
+today_events, tomorrow_events, later_events = get_calendar_events()
 ecowitt = get_ecowitt_data()
-bom_data = get_balingup_bom()
+bom = get_balingup_bom()
 
-# --- 4. DRAWING CANVAS ---
 img = Image.new('1', (WIDTH, HEIGHT), 255)
 draw = ImageDraw.Draw(img)
 
@@ -230,13 +210,14 @@ def load_font(size):
             return ImageFont.truetype(p, size)
     return ImageFont.load_default()
 
-font_hero = load_font(42)
-font_title = load_font(18)
-font_sub = load_font(13)
-font_small = load_font(11)
+font_hero = load_font(44)
+font_title = load_font(17)
+font_card_head = load_font(13)
+font_sub = load_font(12)
+font_small = load_font(10)
 
 def draw_weather_icon(draw_obj, code, x, y):
-    if code in [0, 1]:
+    if code in [0, 1]:  # Sun
         draw_obj.ellipse([x+8, y+8, x+36, y+36], fill=0)
         for p1, p2 in [
             ((x+22, y), (x+22, y+6)), ((x+22, y+38), (x+22, y+44)),
@@ -245,79 +226,123 @@ def draw_weather_icon(draw_obj, code, x, y):
             ((x+6, y+38), (x+11, y+33)), ((x+33, y+11), (x+38, y+6))
         ]:
             draw_obj.line([p1, p2], fill=0, width=2)
-    elif code in [2, 3]:
+    elif code in [2, 3]:  # Clouds
         draw_obj.ellipse([x+14, y+10, x+38, y+34], fill=0)
         draw_obj.ellipse([x+4, y+18, x+24, y+38], fill=0)
         draw_obj.ellipse([x+20, y+16, x+44, y+38], fill=0)
         draw_obj.rectangle([x+14, y+24, x+36, y+38], fill=0)
-    else:
+    else:  # Rain
         draw_obj.ellipse([x+14, y+6, x+38, y+30], fill=0)
         draw_obj.ellipse([x+4, y+14, x+24, y+34], fill=0)
         draw_obj.ellipse([x+20, y+12, x+44, y+34], fill=0)
         draw_obj.rectangle([x+14, y+20, x+36, y+34], fill=0)
         for rx in [x+12, x+22, x+32]:
-            draw_obj.line([(rx, y+38), (rx-3, y+46)], fill=0, width=2)
+            draw_obj.line([(rx, y+36), (rx-3, y+44)], fill=0, width=2)
 
-# Outer border & header
-draw.rectangle([(12, 12), (WIDTH - 12, HEIGHT - 12)], outline=0, width=2)
-now_perth = datetime.datetime.utcnow() + datetime.timedelta(hours=8)
-date_str = now_perth.strftime("%A, %d %B %Y").upper()
-draw.text((24, 22), "BALINGUP DASHBOARD", font=font_title, fill=0)
-draw.text((WIDTH - 240, 24), date_str, font=font_small, fill=0)
-draw.line([(12, 50), (WIDTH - 12, 50)], fill=0, width=2)
+# --- TOP STATUS BAR (PILL DESIGN) ---
+draw.rounded_rectangle([(12, 10), (WIDTH - 12, 48)], radius=19, fill=0)
+tz_wa = datetime.timezone(datetime.timedelta(hours=8))
+now_wa = datetime.datetime.now(tz_wa)
+date_str = now_wa.strftime("%A, %d %B %Y").upper()
+draw.text((30, 20), "BALINGUP DASHBOARD", font=font_title, fill=1)
+draw.text((WIDTH - 230, 23), date_str, font=font_small, fill=1)
 
-# Split screen vertical line
-draw.line([(430, 50), (430, HEIGHT - 12)], fill=0, width=2)
+# --- LEFT COLUMN: AGENDA ---
+# Card 1: Today & Tomorrow (12, 58) to (435, 335)
+draw.rounded_rectangle([(12, 58), (435, 335)], radius=22, outline=0, width=2)
 
-# --- LEFT: SCHEDULE & CALENDAR ---
-draw.text((24, 62), "TODAY & TOMORROW", font=font_title, fill=0)
-draw.line([(24, 86), (410, 86)], fill=0, width=1)
+# Section: TODAY
+draw.rounded_rectangle([(24, 70), (105, 92)], radius=11, fill=0)
+draw.text((36, 74), "TODAY", font=font_card_head, fill=1)
 
-y_pos = 98
-if calendar_events:
-    for ev_date, time_str, summary, tag in calendar_events[:11]:
-        max_chars = 26
-        display_summary = summary[:max_chars] + "..." if len(summary) > max_chars else summary
-
-        draw.rectangle([(24, y_pos), (116, y_pos + 18)], fill=0)
-        draw.text((30, y_pos + 2), tag, font=font_small, fill=1)
-        draw.text((124, y_pos + 2), f"{time_str} - {display_summary}", font=font_sub, fill=0)
-        y_pos += 28
+y_cursor = 100
+if today_events:
+    for _, t_str, summ in today_events[:4]:
+        label = f"• {summ}" if not t_str else f"• {t_str} - {summ}"
+        label = label[:38] + "..." if len(label) > 40 else label
+        draw.text((28, y_cursor), label, font=font_sub, fill=0)
+        y_cursor += 20
 else:
-    draw.text((24, y_pos), "No upcoming events scheduled.", font=font_sub, fill=0)
+    draw.text((28, y_cursor), "• No events today", font=font_sub, fill=0)
+    y_cursor += 20
 
-# --- RIGHT TOP: ECOWITT ---
-draw.text((444, 62), "BACKYARD (ECOWITT)", font=font_title, fill=0)
-draw.line([(444, 86), (WIDTH - 24, 86)], fill=0, width=1)
+# Section: TOMORROW
+y_cursor = max(y_cursor + 6, 185)
+draw.rounded_rectangle([(24, y_cursor), (145, y_cursor + 22)], radius=11, fill=0)
+draw.text((36, y_cursor + 4), "TOMORROW", font=font_card_head, fill=1)
+y_cursor += 30
+
+if tomorrow_events:
+    for _, t_str, summ in tomorrow_events[:4]:
+        label = f"• {summ}" if not t_str else f"• {t_str} - {summ}"
+        label = label[:38] + "..." if len(label) > 40 else label
+        draw.text((28, y_cursor), label, font=font_sub, fill=0)
+        y_cursor += 20
+else:
+    draw.text((28, y_cursor), "• No events tomorrow", font=font_sub, fill=0)
+
+# Card 2: Looking Ahead (12, 345) to (435, 468)
+draw.rounded_rectangle([(12, 345), (435, 468)], radius=20, outline=0, width=2)
+draw.rounded_rectangle([(24, 355), (170, 375)], radius=10, fill=0)
+draw.text((34, 358), "LOOKING AHEAD", font=font_small, fill=1)
+
+y_ahead = 385
+if later_events:
+    for d, t_str, summ in later_events[:3]:
+        day_tag = d.strftime("%a %d")
+        ahead_label = f"{day_tag}: {summ}"
+        ahead_label = ahead_label[:38] + "..." if len(ahead_label) > 40 else ahead_label
+        draw.text((28, y_ahead), ahead_label, font=font_sub, fill=0)
+        y_ahead += 22
+else:
+    draw.text((28, y_ahead), "No upcoming events this week.", font=font_sub, fill=0)
+
+# --- RIGHT COLUMN: WEATHER WIDGETS ---
+# Card 3: Ecowitt (447, 58) to (WIDTH - 12, 250)
+draw.rounded_rectangle([(447, 58), (WIDTH - 12, 250)], radius=22, outline=0, width=2)
+draw.rounded_rectangle([(460, 68), (620, 90)], radius=11, fill=0)
+draw.text((472, 72), "BACKYARD SENSORS", font=font_card_head, fill=1)
 
 if ecowitt:
-    draw.text((444, 96), f"{ecowitt['temp_c']}°", font=font_hero, fill=0)
-    draw.text((580, 102), f"HUMIDITY: {ecowitt['humidity']}%", font=font_small, fill=0)
-    draw.text((580, 120), "STATUS: LIVE ONLINE", font=font_small, fill=0)
+    draw.text((462, 102), f"{ecowitt['temp_c']}°", font=font_hero, fill=0)
+    
+    # Humidity & status badge
+    draw.rounded_rectangle([(610, 104), (WIDTH - 24, 128)], radius=12, fill=0)
+    draw.text((622, 109), f"HUMIDITY {ecowitt['humidity']}%", font=font_small, fill=1)
+    draw.text((615, 136), "● STATION ONLINE", font=font_small, fill=0)
 
-    draw.text((444, 150), "RAIN (RESET 9AM):", font=font_sub, fill=0)
-    draw.text((444, 170), f"• Today/24h: {ecowitt['rain_24h']} mm", font=font_small, fill=0)
-    draw.text((590, 170), f"• Weekly: {ecowitt['rain_weekly']} mm", font=font_small, fill=0)
-    draw.text((444, 192), f"• Last Event: {ecowitt['rain_event']} mm", font=font_small, fill=0)
+    # Dotted divider line
+    for dx in range(460, WIDTH - 24, 6):
+        draw.point((dx, 160), fill=0)
+
+    draw.text((462, 172), f"Rain 24h: {ecowitt['rain_24h']} mm", font=font_sub, fill=0)
+    draw.text((610, 172), f"Weekly: {ecowitt['rain_weekly']} mm", font=font_sub, fill=0)
+    draw.text((462, 198), f"Last Event: {ecowitt['rain_event']} mm", font=font_sub, fill=0)
+    draw.text((610, 198), "(Reset at 9 AM)", font=font_small, fill=0)
 else:
-    draw.text((444, 110), "Station Offline or Syncing...", font=font_sub, fill=0)
+    draw.text((462, 110), "Sensors connecting...", font=font_sub, fill=0)
 
-draw.line([(430, 222), (WIDTH - 12, 222)], fill=0, width=2)
+# Card 4: BOM Regional Forecast (447, 260) to (WIDTH - 12, 468)
+draw.rounded_rectangle([(447, 260), (WIDTH - 12, 468)], radius=22, outline=0, width=2)
+draw.rounded_rectangle([(460, 270), (620, 292)], radius=11, fill=0)
+draw.text((472, 274), "REGIONAL FORECAST", font=font_card_head, fill=1)
 
-# --- RIGHT BOTTOM: BOM FORECAST ---
-draw.text((444, 234), "BOM REGIONAL (BALINGUP)", font=font_title, fill=0)
-draw.line([(444, 258), (WIDTH - 24, 258)], fill=0, width=1)
+if bom:
+    # Today's forecast block
+    draw_weather_icon(draw, bom["today"]["code"], 460, 310)
+    draw.text((518, 308), f"TODAY  Max {bom['today']['max']}° | Min {bom['today']['min']}°", font=font_sub, fill=0)
+    draw.text((518, 328), f"Precip: {bom['today']['rain_prob']}% ({bom['today']['rain_sum']} mm)", font=font_small, fill=0)
 
-if bom_data:
-    draw_weather_icon(draw, bom_data["today"]["code"], 444, 274)
-    draw.text((505, 272), f"TODAY: Max {bom_data['today']['max']}°C | Min {bom_data['today']['min']}°C", font=font_sub, fill=0)
-    draw.text((505, 294), f"Rain: {bom_data['today']['rain_prob']}% ({bom_data['today']['rain_sum']} mm)", font=font_small, fill=0)
+    # Divider line
+    for dx in range(460, WIDTH - 24, 6):
+        draw.point((dx, 368), fill=0)
 
-    draw_weather_icon(draw, bom_data["tomorrow"]["code"], 444, 342)
-    draw.text((505, 340), f"TOMORROW: Max {bom_data['tomorrow']['max']}°C | Min {bom_data['tomorrow']['min']}°C", font=font_sub, fill=0)
-    draw.text((505, 362), f"Rain: {bom_data['tomorrow']['rain_prob']}% ({bom_data['tomorrow']['rain_sum']} mm)", font=font_small, fill=0)
+    # Tomorrow's forecast block
+    draw_weather_icon(draw, bom["tomorrow"]["code"], 460, 388)
+    draw.text((518, 386), f"TOMORROW  Max {bom['tomorrow']['max']}° | Min {bom['tomorrow']['min']}°", font=font_sub, fill=0)
+    draw.text((518, 406), f"Precip: {bom['tomorrow']['rain_prob']}% ({bom['tomorrow']['rain_sum']} mm)", font=font_small, fill=0)
 else:
-    draw.text((444, 280), "Forecast unavailable", font=font_sub, fill=0)
+    draw.text((460, 310), "Forecast unavailable", font=font_sub, fill=0)
 
 img.save("dashboard.png", "PNG")
-log("Saved complete dashboard preview successfully!")
+log("Saved Android 16-inspired rounded dashboard successfully!")
