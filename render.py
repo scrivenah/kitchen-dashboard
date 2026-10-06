@@ -7,9 +7,10 @@ WIDTH, HEIGHT = 800, 480
 
 # 1. Fetch live BOM ACCESS-G data for Balingup WA (-33.7865, 115.9838)
 def get_balingup_bom():
-    url = (
-        "https://api.open-meteo.com/v1/bom?"
+url = (
+        "https://api.open-meteo.com/v1/forecast?"
         "latitude=-33.7865&longitude=115.9838&"
+        "models=bom_access_global&"
         "daily=weather_code,temperature_2m_max,temperature_2m_min,precipitation_sum,precipitation_probability_max&"
         "timezone=Australia%2FPerth"
     )
@@ -21,15 +22,15 @@ def get_balingup_bom():
                 "code": daily["weather_code"][0],
                 "max": round(daily["temperature_2m_max"][0]),
                 "min": round(daily["temperature_2m_min"][0]),
-                "rain_sum": daily["precipitation_sum"][0],
-                "rain_prob": daily["precipitation_probability_max"][0],
+                "rain_sum": daily.get("precipitation_sum", [0, 0])[0] or 0.0,
+                "rain_prob": daily.get("precipitation_probability_max", [0, 0])[0] or 0,
             },
             "tomorrow": {
                 "code": daily["weather_code"][1],
                 "max": round(daily["temperature_2m_max"][1]),
                 "min": round(daily["temperature_2m_min"][1]),
-                "rain_sum": daily["precipitation_sum"][1],
-                "rain_prob": daily["precipitation_probability_max"][1],
+                "rain_sum": daily.get("precipitation_sum", [0, 0])[1] or 0.0,
+                "rain_prob": daily.get("precipitation_probability_max", [0, 0])[1] or 0,
             }
         }
     except Exception as e:
@@ -114,10 +115,10 @@ schedule_mock = [
 
 y_pos = 106
 for tag, time_str, desc in schedule_mock:
-    # Pill tag
-    draw.rectangle([(28, y_pos), (95, y_pos + 18)], fill=0)
+    # Pill tag (widened to 115 so TOMORROW never clips)
+    draw.rectangle([(28, y_pos), (115, y_pos + 18)], fill=0)
     draw.text((34, y_pos + 2), tag, font=font_small, fill=1) # Inverted white text
-    draw.text((105, y_pos + 2), f"{time_str} - {desc}", font=font_sub, fill=0)
+    draw.text((125, y_pos + 2), f"{time_str} - {desc}", font=font_sub, fill=0)
     y_pos += 30
 
 # --- RIGHT TOP: ECOWITT (PREVIOUS 24H & CYCLES) ---
