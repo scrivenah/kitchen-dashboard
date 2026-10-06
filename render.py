@@ -5,7 +5,69 @@ from PIL import Image, ImageDraw, ImageFont
 
 WIDTH, HEIGHT = 800, 480
 
-# 1. Fetch live BOM forecast for Balingup WA (-33.7865, 115.9838)
+# 1. Fetch live Ecowitt Station Data
+def get_ecowitt_data():
+    app_key = os.environ.get("ECOWITT_APPLICATION_KEY")
+    api_key = os.environ.get("ECOWITT_API_KEY")
+    mac = os.environ.get("ECOWITT_MAC")
+
+    if not all([app_key, api_key, mac]):
+        print("Ecowitt credentials missing from environment.")
+        return None
+
+    url = (
+        f"https://api.ecowitt.net/api/v3/device/real_time?"
+        f"application_key={app_key}&"
+        f"api_key={api_key}&"
+        f"mac={mac}&"
+        f"call_back=outdoor,rainfall,pressure"
+    )
+    try:
+        res = requests.get(url, timeout=10).json()
+        if res.get("code") != 0:
+            print(f"Ecowitt API returned error: {res}")
+            return None
+        
+        data = res.get("data", {})
+        outdoor = data.get("outdoor", {})
+        rainfall = data.get("rainfall", {})
+
+        # Temperature (convert F to C if returned in F, otherwise raw)
+        temp_val = float(outdoor.get("temperature", {}).get("value", 0))
+        temp_unit = outdoor.get("temperature", {}).get("unit", "C")
+        if "F" in temp_unit:
+            temp_c = round((temp_val - 32) * 5 / 9, 1)
+        else:
+            temp_c = round(temp_val, 1)
+
+        humidity = outdoor.get("humidity", {}).get("value", "--")
+
+        # Rainfall conversion (inches to mm if needed)
+        def to_mm(metric_dict):
+            if not metric_dict:
+                return 0.0
+            val = float(metric_dict.get("value", 0.0))
+            unit = metric_dict.get("unit", "mm")
+            if "in" in unit.lower():
+                return round(val * 25.4, 1)
+            return round(val, 1)
+
+        rain_event = to_mm(rainfall.get("event"))
+        rain_24h = to_mm(rainfall.get("daily"))
+        rain_weekly = to_mm(rainfall.get("weekly"))
+
+        return {
+            "temp_c": temp_c,
+            "humidity": humidity,
+            "rain_event": rain_event,
+            "rain_24h": rain_24h,
+            "rain_weekly": rain_weekly,
+        }
+    except Exception as e:
+        print(f"Error fetching Ecowitt data: {e}")
+        return None
+
+# 2. Fetch live BOM forecast for Balingup WA (-33.7865, 115.9838)
 def get_balingup_bom():
     url = (
         "https://api.open-meteo.com/v1/forecast?"
@@ -36,9 +98,10 @@ def get_balingup_bom():
         print(f"Error fetching BOM: {e}")
         return None
 
+ecowitt = get_ecowitt_data()
 bom_data = get_balingup_bom()
 
-# 2. Setup Image Canvas (1-bit monochrome)
+# 3. Setup Image Canvas (1-bit monochrome)
 img = Image.new('1', (WIDTH, HEIGHT), 255)
 draw = ImageDraw.Draw(img)
 
@@ -58,9 +121,8 @@ font_title = load_font(18)
 font_sub = load_font(14)
 font_small = load_font(12)
 
-# 3. Geometric Weather Icon Drawer
+# Geometric Weather Icon Drawer
 def draw_weather_icon(draw_obj, code, x, y):
-    # Codes 0-1: Clear / Sunny
     if code in [0, 1]:
         draw_obj.ellipse([x+8, y+8, x+36, y+36], fill=0)
         for p1, p2 in [
@@ -74,13 +136,11 @@ def draw_weather_icon(draw_obj, code, x, y):
             ((x+33, y+11), (x+38, y+6))
         ]:
             draw_obj.line([p1, p2], fill=0, width=2)
-    # Codes 2-3: Partly Cloudy / Overcast
     elif code in [2, 3]:
         draw_obj.ellipse([x+14, y+10, x+38, y+34], fill=0)
         draw_obj.ellipse([x+4, y+18, x+24, y+38], fill=0)
         draw_obj.ellipse([x+20, y+16, x+44, y+38], fill=0)
         draw_obj.rectangle([x+14, y+24, x+36, y+38], fill=0)
-    # Codes 51-67, 80-82: Rain / Showers
     else:
         draw_obj.ellipse([x+14, y+6, x+38, y+30], fill=0)
         draw_obj.ellipse([x+4, y+14, x+24, y+34], fill=0)
@@ -101,7 +161,7 @@ draw.text((24, 22), "BALINGUP DASHBOARD", font=font_title, fill=0)
 draw.text((WIDTH - 240, 24), date_str, font=font_small, fill=0)
 draw.line([(12, 50), (WIDTH - 12, 50)], fill=0, width=2)
 
-# Vertical Split (moved to x=430 to give calendar extra room)
+# Vertical Split
 draw.line([(430, 50), (430, HEIGHT - 12)], fill=0, width=2)
 
 # --- LEFT: SCHEDULE & TASKS ---
@@ -119,24 +179,26 @@ schedule_mock = [
 
 y_pos = 98
 for tag, time_str, desc in schedule_mock:
-    # Pill tag
     draw.rectangle([(24, y_pos), (116, y_pos + 18)], fill=0)
     draw.text((30, y_pos + 2), tag, font=font_small, fill=1)
     draw.text((124, y_pos + 2), f"{time_str} - {desc}", font=font_sub, fill=0)
     y_pos += 28
 
-# --- RIGHT TOP: ECOWITT (PREVIOUS 24H & CYCLES) ---
-draw.text((444, 62), "BACKYARD (ECOWITT HISTORY)", font=font_title, fill=0)
+# --- RIGHT TOP: ECOWITT (LIVE & CYCLE STATS) ---
+draw.text((444, 62), "BACKYARD (ECOWITT)", font=font_title, fill=0)
 draw.line([(444, 86), (WIDTH - 24, 86)], fill=0, width=1)
 
-draw.text((444, 96), "18.4°", font=font_hero, fill=0)
-draw.text((580, 102), "YEST HIGH: 23.1°C", font=font_small, fill=0)
-draw.text((580, 120), "NIGHT LOW:  7.8°C", font=font_small, fill=0)
+if ecowitt:
+    draw.text((444, 96), f"{ecowitt['temp_c']}°", font=font_hero, fill=0)
+    draw.text((580, 102), f"HUMIDITY: {ecowitt['humidity']}%", font=font_small, fill=0)
+    draw.text((580, 120), "STATUS: LIVE ONLINE", font=font_small, fill=0)
 
-draw.text((444, 150), "RAIN (RESET 9AM):", font=font_sub, fill=0)
-draw.text((444, 170), "• Prev 24h: 3.2 mm", font=font_small, fill=0)
-draw.text((590, 170), "• Weekly: 18.6 mm", font=font_small, fill=0)
-draw.text((444, 192), "• Last Event: 4.8 mm", font=font_small, fill=0)
+    draw.text((444, 150), "RAIN (RESET 9AM):", font=font_sub, fill=0)
+    draw.text((444, 170), f"• Today/24h: {ecowitt['rain_24h']} mm", font=font_small, fill=0)
+    draw.text((590, 170), f"• Weekly: {ecowitt['rain_weekly']} mm", font=font_small, fill=0)
+    draw.text((444, 192), f"• Last Event: {ecowitt['rain_event']} mm", font=font_small, fill=0)
+else:
+    draw.text((444, 110), "Station Offline or Syncing...", font=font_sub, fill=0)
 
 # Horizontal Divider between Ecowitt and BOM
 draw.line([(430, 222), (WIDTH - 12, 222)], fill=0, width=2)
@@ -146,12 +208,10 @@ draw.text((444, 234), "BOM REGIONAL (BALINGUP)", font=font_title, fill=0)
 draw.line([(444, 258), (WIDTH - 24, 258)], fill=0, width=1)
 
 if bom_data:
-    # Today Card
     draw_weather_icon(draw, bom_data["today"]["code"], 444, 274)
     draw.text((505, 272), f"TODAY: Max {bom_data['today']['max']}°C | Min {bom_data['today']['min']}°C", font=font_sub, fill=0)
     draw.text((505, 294), f"Rain: {bom_data['today']['rain_prob']}% ({bom_data['today']['rain_sum']} mm)", font=font_small, fill=0)
 
-    # Tomorrow Card
     draw_weather_icon(draw, bom_data["tomorrow"]["code"], 444, 342)
     draw.text((505, 340), f"TOMORROW: Max {bom_data['tomorrow']['max']}°C | Min {bom_data['tomorrow']['min']}°C", font=font_sub, fill=0)
     draw.text((505, 362), f"Rain: {bom_data['tomorrow']['rain_prob']}% ({bom_data['tomorrow']['rain_sum']} mm)", font=font_small, fill=0)
@@ -159,4 +219,4 @@ else:
     draw.text((444, 280), "Forecast unavailable", font=font_sub, fill=0)
 
 img.save("dashboard.png", "PNG")
-print("Saved refreshed dashboard preview!")
+print("Saved dashboard preview with live Ecowitt!")
