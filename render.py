@@ -198,18 +198,21 @@ def get_ecowitt_data():
         log(f"Ecowitt error: {e}")
         return None
 
-# --- 3. BOM ACCESS FORECAST FETCHER ---
+# --- 3. BOM FORECAST FETCHER ---
 def get_balingup_bom():
     url = (
         "https://api.open-meteo.com/v1/forecast?"
         "latitude=-33.7865&longitude=115.9838&"
         "daily=weathercode,temperature_2m_max,temperature_2m_min,precipitation_sum,precipitation_probability_max&"
-        "models=bom_access_global&"
         "past_days=1&forecast_days=7&"
         "timezone=Australia%2FPerth"
     )
     try:
         res = requests.get(url, timeout=10).json()
+        if "daily" not in res:
+            log(f"Open-Meteo returned error: {res}")
+            return None
+
         daily = res["daily"]
         dates = [datetime.datetime.strptime(d, "%Y-%m-%d").date() for d in daily["time"]]
 
@@ -221,6 +224,9 @@ def get_balingup_bom():
                 "code": daily["weathercode"][i]
             })
 
+        rain_sums = daily.get("precipitation_sum", [0.0]*8)
+        rain_probs = daily.get("precipitation_probability_max", [0]*8)
+
         return {
             "yesterday": {
                 "max": round(daily["temperature_2m_max"][0]),
@@ -230,22 +236,21 @@ def get_balingup_bom():
                 "code": daily["weathercode"][1],
                 "max": round(daily["temperature_2m_max"][1]),
                 "min": round(daily["temperature_2m_min"][1]),
-                "rain_sum": daily.get("precipitation_sum", [0]*8)[1] or 0.0,
-                "rain_prob": daily.get("precipitation_probability_max", [0]*8)[1] or 0,
+                "rain_sum": rain_sums[1] if len(rain_sums) > 1 and rain_sums[1] is not None else 0.0,
+                "rain_prob": rain_probs[1] if len(rain_probs) > 1 and rain_probs[1] is not None else 0,
             },
             "tomorrow": {
                 "code": daily["weathercode"][2],
                 "max": round(daily["temperature_2m_max"][2]),
                 "min": round(daily["temperature_2m_min"][2]),
-                "rain_sum": daily.get("precipitation_sum", [0]*8)[2] or 0.0,
-                "rain_prob": daily.get("precipitation_probability_max", [0]*8)[2] or 0,
+                "rain_sum": rain_sums[2] if len(rain_sums) > 2 and rain_sums[2] is not None else 0.0,
+                "rain_prob": rain_probs[2] if len(rain_probs) > 2 and rain_probs[2] is not None else 0,
             },
             "next_5_days": upcoming_5_days
         }
     except Exception as e:
         log(f"BOM error: {e}")
         return None
-
 today_events, tomorrow_events, later_events = get_calendar_events()
 ecowitt = get_ecowitt_data()
 bom = get_balingup_bom()
