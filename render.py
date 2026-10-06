@@ -10,13 +10,12 @@ WIDTH, HEIGHT = 800, 480
 def log(msg):
     print(f"LOG: {msg}", flush=True)
 
-# --- COLOR PALETTE (Material You / Android 16 Theme) ---
-COLOR_BG = (248, 249, 250)         # Soft porcelain white
+# --- COLOR PALETTE (Material You / Android Theme) ---
+COLOR_BG = (248, 249, 250)         # Soft off-white
 COLOR_CARD = (255, 255, 255)       # Card background
-COLOR_BORDER = (220, 224, 230)     # Clean hairline borders
-COLOR_TEXT_DARK = (28, 30, 33)     # Primary charcoal text
-COLOR_TEXT_MUTED = (108, 115, 125) # Secondary grey text
-COLOR_ACCENT = (41, 98, 255)       # Primary vibrant blue
+COLOR_BORDER = (220, 224, 230)     # Clean borders
+COLOR_TEXT_DARK = (28, 30, 33)     # Primary charcoal
+COLOR_TEXT_MUTED = (108, 115, 125) # Secondary text
 
 # Event Category Accents
 COLOR_WORK = (26, 115, 232)        # Blue
@@ -169,22 +168,45 @@ def get_ecowitt_data():
         data = res.get("data", {})
         outdoor = data.get("outdoor", {})
         rainfall = data.get("rainfall", {})
+        temp_data = outdoor.get("temperature", {})
 
-        temp_val = float(outdoor.get("temperature", {}).get("value", 0))
-        temp_unit = outdoor.get("temperature", {}).get("unit", "C")
-        temp_c = round((temp_val - 32) * 5 / 9, 1) if "F" in temp_unit else round(temp_val, 1)
+        def parse_temp(val_item):
+            if val_item is None:
+                return None
+            if isinstance(val_item, dict):
+                val = float(val_item.get("value", 0))
+                unit = val_item.get("unit", "C")
+            else:
+                val = float(val_item)
+                unit = temp_data.get("unit", "C")
+            return round((val - 32) * 5 / 9, 1) if "F" in str(unit).upper() else round(val, 1)
 
+        temp_c = parse_temp(temp_data)
         humidity = outdoor.get("humidity", {}).get("value", "--")
+
+        # Today's station recorded High & Low if exposed by gateway/API
+        temp_max = None
+        temp_min = None
+        for k in ["max", "high", "daily_max", "day_max"]:
+            if k in temp_data:
+                temp_max = parse_temp(temp_data[k])
+                break
+        for k in ["min", "low", "daily_min", "day_min"]:
+            if k in temp_data:
+                temp_min = parse_temp(temp_data[k])
+                break
 
         def to_mm(metric_dict):
             if not metric_dict:
                 return 0.0
             val = float(metric_dict.get("value", 0.0))
             unit = metric_dict.get("unit", "mm")
-            return round(val * 25.4, 1) if "in" in unit.lower() else round(val, 1)
+            return round(val * 25.4, 1) if "in" in str(unit).lower() else round(val, 1)
 
         return {
             "temp_c": temp_c,
+            "temp_max": temp_max,
+            "temp_min": temp_min,
             "humidity": humidity,
             "rain_event": to_mm(rainfall.get("event")),
             "rain_24h": to_mm(rainfall.get("daily")),
@@ -314,7 +336,6 @@ draw.rounded_rectangle([(12, 10), (WIDTH - 12, 48)], radius=19, fill=COLOR_CARD,
 tz_wa = datetime.timezone(datetime.timedelta(hours=8))
 now_wa = datetime.datetime.now(tz_wa)
 
-# Today's date on the left, Updated time on the right
 date_title_str = now_wa.strftime("%A, %d %B %Y")
 time_now_str = now_wa.strftime("%I:%M %p").lstrip('0')
 draw.text((28, 20), date_title_str, font=font_title, fill=COLOR_TEXT_DARK)
@@ -383,7 +404,10 @@ if ecowitt:
     draw.text((462, 98), f"{ecowitt['temp_c']}°", font=font_hero, fill=COLOR_TEXT_DARK)
     draw.text((605, 110), f"Humidity: {ecowitt['humidity']}%", font=font_sub, fill=COLOR_TEXT_DARK)
 
-    if bom and "yesterday" in bom:
+    # Show station today High / Low if reported by Ecowitt, otherwise BOM yesterday
+    if ecowitt.get("temp_max") is not None and ecowitt.get("temp_min") is not None:
+        draw.text((462, 146), f"Today: High {ecowitt['temp_max']}°C | Low {ecowitt['temp_min']}°C", font=font_small, fill=COLOR_TEXT_MUTED)
+    elif bom and "yesterday" in bom:
         draw.text((462, 146), f"Yesterday: Max {bom['yesterday']['max']}°C | Min {bom['yesterday']['min']}°C", font=font_small, fill=COLOR_TEXT_MUTED)
 
     for dx in range(460, WIDTH - 24, 6):
@@ -425,4 +449,4 @@ else:
     draw.text((460, 310), "Forecast unavailable", font=font_sub, fill=COLOR_TEXT_MUTED)
 
 img.save("dashboard.png", "PNG")
-log("Saved cleanly formatted dashboard successfully!")
+log("Saved complete dashboard successfully!")
