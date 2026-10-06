@@ -28,7 +28,6 @@ def get_calendar_events():
         try:
             res = requests.get(url, timeout=10)
             if res.status_code != 200:
-                print(f"Calendar URL returned status {res.status_code}: {url[:40]}...")
                 continue
             cal = Calendar.from_ical(res.text)
             for component in cal.walk():
@@ -37,30 +36,39 @@ def get_calendar_events():
                     dtstart_prop = component.get("dtstart")
                     if not dtstart_prop:
                         continue
-                    dtstart = dtstart_prop.dt
+                    dtstart_val = dtstart_prop.dt
+                    dtend_prop = component.get("dtend")
+                    dtend_val = dtend_prop.dt if dtend_prop else dtstart_val
 
-                    # Handle all-day vs timed events
-                    if isinstance(dtstart, datetime.datetime):
-                        dt_local = dtstart.astimezone(tz_wa)
-                        ev_date = dt_local.date()
-                        time_str = dt_local.strftime("%I:%M %p")
-                    elif isinstance(dtstart, datetime.date):
-                        ev_date = dtstart
-                        time_str = "All Day"
+                    # Convert to local dates/times
+                    is_all_day = not isinstance(dtstart_val, datetime.datetime)
+                    if not is_all_day:
+                        start_local = dtstart_val.astimezone(tz_wa)
+                        end_local = dtend_val.astimezone(tz_wa)
+                        start_date = start_local.date()
+                        end_date = end_local.date()
+                        time_str = start_local.strftime("%I:%M %p")
                     else:
-                        continue
+                        start_date = dtstart_val
+                        # All-day DTEND is exclusive in iCal (e.g. ends on 8th means last active day is 7th)
+                        end_date = dtend_val if isinstance(dtend_val, datetime.date) else dtstart_val
+                        time_str = "All Day"
 
-                    if ev_date == today:
-                        events.append((ev_date, time_str, summary, "TODAY"))
-                    elif ev_date == tomorrow:
-                        events.append((ev_date, time_str, summary, "TOMORROW"))
+                    # Check coverage for TODAY
+                    if start_date <= today < end_date or (start_date == today and end_date == today) or (is_all_day and start_date <= today <= (end_date - datetime.timedelta(days=1) if end_date > start_date else end_date)):
+                        events.append((today, time_str, summary, "TODAY"))
+
+                    # Check coverage for TOMORROW
+                    if start_date <= tomorrow < end_date or (start_date == tomorrow and end_date == tomorrow) or (is_all_day and start_date <= tomorrow <= (end_date - datetime.timedelta(days=1) if end_date > start_date else end_date)):
+                        events.append((tomorrow, time_str, summary, "TOMORROW"))
+
         except Exception as e:
             print(f"Error reading calendar feed: {e}")
 
-    # Sort chronologically (All Day first, then by time)
-    events.sort(key=lambda x: (x[0], 0 if x[1] == "All Day" else 1, x[1]))
-    return events
-
+    # Remove duplicates and sort (Today first, All Day first, then by time)
+    unique_events = list({(e[0], e[1], e[2], e[3]): e for e in events}.values())
+    unique_events.sort(key=lambda x: (x[0], 0 if x[1] == "All Day" else 1, x[1]))
+    return unique_events
 # --- 2. ECOWITT DATA FETCHER ---
 def get_ecowitt_data():
     app_key = os.environ.get("ECOWITT_APPLICATION_KEY")
