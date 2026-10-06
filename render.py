@@ -39,7 +39,7 @@ def get_calendar_events():
                 if component.name == "VEVENT":
                     summary = str(component.get("summary", "Untitled"))
                     if is_airbnb and summary == "Reserved":
-                        summary = "[COTTAGE] Reserved"
+                        summary = "Vic's Shack Reserved"
 
                     dtstart_prop = component.get("dtstart")
                     if not dtstart_prop:
@@ -171,7 +171,6 @@ def get_balingup_bom():
     try:
         res = requests.get(url, timeout=10).json()
         daily = res["daily"]
-        # Index 0 is Yesterday, Index 1 is Today, Index 2 is Tomorrow
         return {
             "yesterday": {
                 "max": round(daily["temperature_2m_max"][0]),
@@ -200,7 +199,7 @@ today_events, tomorrow_events, later_events = get_calendar_events()
 ecowitt = get_ecowitt_data()
 bom = get_balingup_bom()
 
-# --- 4. RENDER CANVAS & MATERIAL YOU STYLING ---
+# --- 4. RENDER CANVAS ---
 img = Image.new('1', (WIDTH, HEIGHT), 255)
 draw = ImageDraw.Draw(img)
 
@@ -244,11 +243,12 @@ def draw_weather_icon(draw_obj, code, x, y):
         for rx in [x+12, x+22, x+32]:
             draw_obj.line([(rx, y+36), (rx-3, y+44)], fill=0, width=2)
 
-# --- TOP STATUS BAR (CLEAN OUTLINED PILL) ---
+# --- TOP STATUS BAR ---
 draw.rounded_rectangle([(12, 10), (WIDTH - 12, 48)], radius=19, outline=0, width=2)
 tz_wa = datetime.timezone(datetime.timedelta(hours=8))
 now_wa = datetime.datetime.now(tz_wa)
 date_str = now_wa.strftime("%A, %d %B %Y").upper()
+time_now_str = now_wa.strftime("%I:%M %p").lstrip('0')
 draw.text((28, 20), "BALINGUP DASHBOARD", font=font_title, fill=0)
 draw.text((WIDTH - 230, 23), date_str, font=font_small, fill=0)
 
@@ -256,7 +256,7 @@ draw.text((WIDTH - 230, 23), date_str, font=font_small, fill=0)
 # Card 1: Today & Tomorrow
 draw.rounded_rectangle([(12, 58), (435, 335)], radius=22, outline=0, width=2)
 
-# Section: TODAY (Outlined Pill)
+# Section: TODAY
 draw.rounded_rectangle([(24, 70), (105, 92)], radius=11, outline=0, width=1)
 draw.text((36, 74), "TODAY", font=font_card_head, fill=0)
 
@@ -271,7 +271,7 @@ else:
     draw.text((28, y_cursor), "• No events today", font=font_sub, fill=0)
     y_cursor += 20
 
-# Section: TOMORROW (Outlined Pill)
+# Section: TOMORROW
 y_cursor = max(y_cursor + 6, 185)
 draw.rounded_rectangle([(24, y_cursor), (145, y_cursor + 22)], radius=11, outline=0, width=1)
 draw.text((36, y_cursor + 4), "TOMORROW", font=font_card_head, fill=0)
@@ -303,17 +303,17 @@ else:
     draw.text((28, y_ahead), "No upcoming events this week.", font=font_sub, fill=0)
 
 # --- RIGHT COLUMN: WEATHER WIDGETS ---
-# Card 3: Ecowitt (447, 58) to (WIDTH - 12, 250)
+# Card 3: Weather Station (447, 58) to (WIDTH - 12, 250)
 draw.rounded_rectangle([(447, 58), (WIDTH - 12, 250)], radius=22, outline=0, width=2)
-draw.rounded_rectangle([(460, 68), (620, 90)], radius=11, outline=0, width=1)
-draw.text((472, 72), "BACKYARD SENSORS", font=font_card_head, fill=0)
+draw.rounded_rectangle([(460, 68), (610, 90)], radius=11, outline=0, width=1)
+draw.text((472, 72), "WEATHER STATION", font=font_card_head, fill=0)
 
 if ecowitt:
     draw.text((462, 98), f"{ecowitt['temp_c']}°", font=font_hero, fill=0)
     
-    # Humidity and status (no solid pill)
+    # Humidity and Timestamp
     draw.text((605, 102), f"HUMIDITY: {ecowitt['humidity']}%", font=font_sub, fill=0)
-    draw.text((605, 120), "● LIVE ONLINE", font=font_small, fill=0)
+    draw.text((605, 120), f"UPDATED {time_now_str}", font=font_small, fill=0)
 
     # Yesterday's High / Low
     if bom and "yesterday" in bom:
@@ -330,10 +330,10 @@ if ecowitt:
 else:
     draw.text((462, 110), "Sensors connecting...", font=font_sub, fill=0)
 
-# Card 4: BOM Regional Forecast (447, 260) to (WIDTH - 12, 468)
+# Card 4: Balingup Weather Forecast BOM (447, 260) to (WIDTH - 12, 468)
 draw.rounded_rectangle([(447, 260), (WIDTH - 12, 468)], radius=22, outline=0, width=2)
-draw.rounded_rectangle([(460, 270), (635, 292)], radius=11, outline=0, width=1)
-draw.text((472, 274), "REGIONAL FORECAST", font=font_card_head, fill=0)
+draw.rounded_rectangle([(460, 270), (745, 292)], radius=11, outline=0, width=1)
+draw.text((472, 274), "BALINGUP WEATHER FORECAST BOM", font=font_card_head, fill=0)
 
 if bom:
     # Today's forecast block
@@ -353,4 +353,4 @@ else:
     draw.text((460, 310), "Forecast unavailable", font=font_sub, fill=0)
 
 img.save("dashboard.png", "PNG")
-log("Saved refined light outline dashboard successfully!")
+log("Saved customized dashboard successfully!")
