@@ -396,9 +396,9 @@ if ecowitt:
     draw.text((462, 98), f"{ecowitt['temp_c']}°", font=font_hero, fill=COLOR_TEXT_DARK)
     draw.text((605, 110), f"Humidity: {ecowitt['humidity']}%", font=font_sub, fill=COLOR_TEXT_DARK)
 
-    # Show: Yesterday's High : X°C  |  Overnight's Low : Y°C
+    # Show: Yesterday's High : X°C  |  Overnight Low : Y°C
     if bom and "yesterday_high" in bom and "overnight_low" in bom:
-        stat_line = f"Yesterday's High : {bom['yesterday_high']}°C  |  Overnight's Low : {bom['overnight_low']}°C"
+        stat_line = f"Yesterday's High : {bom['yesterday_high']}°C  |  Overnight Low : {bom['overnight_low']}°C"
         draw.text((462, 146), stat_line, font=font_small, fill=COLOR_TEXT_MUTED)
 
     for dx in range(460, WIDTH - 24, 6):
