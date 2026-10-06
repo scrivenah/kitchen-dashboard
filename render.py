@@ -1,6 +1,7 @@
 import os
 import requests
 import datetime
+from dateutil import rrule as drrule
 from icalendar import Calendar
 from PIL import Image, ImageDraw, ImageFont
 
@@ -16,6 +17,7 @@ def get_calendar_events():
         log("No CALENDAR_ICS_URLS found in environment.")
         return []
 
+    # AWST is UTC+8
     tz_wa = datetime.timezone(datetime.timedelta(hours=8))
     now_wa = datetime.datetime.now(tz_wa)
     today = now_wa.date()
@@ -50,43 +52,65 @@ def get_calendar_events():
                     dtend_prop = component.get("dtend")
                     dtend = dtend_prop.dt if dtend_prop else dtstart
 
-                    # Start date & time label
-                    if isinstance(dtstart, datetime.datetime):
+                    # Determine time string and duration
+                    is_all_day = not isinstance(dtstart, datetime.datetime)
+                    if not is_all_day:
                         dtstart_local = dtstart.astimezone(tz_wa)
-                        start_date = dtstart_local.date()
+                        dtend_local = dtend.astimezone(tz_wa) if isinstance(dtend, datetime.datetime) else dtstart_local
+                        base_start_date = dtstart_local.date()
+                        base_end_date = dtend_local.date()
                         time_str = dtstart_local.strftime("%I:%M %p").lstrip('0')
-                    elif isinstance(dtstart, datetime.date):
-                        start_date = dtstart
+                        duration = dtend_local - dtstart_local
+                    else:
+                        base_start_date = dtstart
+                        base_end_date = dtend if isinstance(dtend, datetime.date) else dtstart
                         time_str = "All Day"
+                        duration = base_end_date - base_start_date
+
+                    # Handle all-day exclusive end date
+                    if is_all_day and base_end_date > base_start_date:
+                        effective_end = base_end_date - datetime.timedelta(days=1)
                     else:
-                        continue
+                        effective_end = base_end_date
 
-                    # End date
-                    if isinstance(dtend, datetime.datetime):
-                        end_date = dtend.astimezone(tz_wa).date()
-                    elif isinstance(dtend, datetime.date):
-                        end_date = dtend
-                    else:
-                        end_date = start_date
+                    # Build active dates list
+                    active_dates = []
 
-                    # For all-day events, Google's end date is exclusive
-                    if time_str == "All Day" and end_date > start_date:
-                        effective_end = end_date - datetime.timedelta(days=1)
-                    else:
-                        effective_end = end_date
+                    # 1. Spanning check for standard events
+                    curr = base_start_date
+                    while curr <= effective_end:
+                        active_dates.append(curr)
+                        curr += datetime.timedelta(days=1)
 
-                    # Print out any event within October 2026 for visibility
-                    if abs((start_date - today).days) <= 14:
-                        log(f"  -> Found '{summary}' | Range: {start_date} to {effective_end} | Time: {time_str}")
+                    # 2. Expand RRULE recurrence rules
+                    rrule_prop = component.get("rrule")
+                    if rrule_prop:
+                        try:
+                            rule_str = rrule_prop.to_ical().decode("utf-8")
+                            rule_start = dtstart if isinstance(dtstart, datetime.datetime) else datetime.datetime.combine(base_start_date, datetime.time.min)
+                            parsed_rule = drrule.rrulestr(rule_str, dtstart=rule_start)
 
-                    # Today check
-                    if start_date <= today <= effective_end:
-                        log(f"     *** ADDED TO TODAY: {summary}")
+                            check_start = datetime.datetime.combine(today - datetime.timedelta(days=7), datetime.time.min)
+                            check_end = datetime.datetime.combine(tomorrow + datetime.timedelta(days=7), datetime.time.max)
+
+                            for occ in parsed_rule.between(check_start, check_end, inc=True):
+                                occ_date = occ.date()
+                                occ_end_date = (occ + duration).date() if not is_all_day else (occ.date() + duration - datetime.timedelta(days=1 if duration.days > 0 else 0))
+                                occ_curr = occ_date
+                                while occ_curr <= occ_end_date:
+                                    active_dates.append(occ_curr)
+                                    occ_curr += datetime.timedelta(days=1)
+                        except Exception:
+                            pass
+
+                    # Match for TODAY
+                    if today in active_dates:
+                        log(f"     *** ADDED TO TODAY: {summary} ({time_str})")
                         events.append((today, time_str, summary, "TODAY"))
 
-                    # Tomorrow check
-                    if start_date <= tomorrow <= effective_end:
-                        log(f"     *** ADDED TO TOMORROW: {summary}")
+                    # Match for TOMORROW
+                    if tomorrow in active_dates:
+                        log(f"     *** ADDED TO TOMORROW: {summary} ({time_str})")
                         events.append((tomorrow, time_str, summary, "TOMORROW"))
 
             log(f"[Feed #{idx+1}] Evaluated {count} total events.")
@@ -102,6 +126,7 @@ def get_calendar_events():
             seen.add(key)
             deduped.append(ev)
 
+    # Sort: Today first, All Day first, then by time
     deduped.sort(key=lambda x: (x[0], 0 if x[1] == "All Day" else 1, x[1]))
     return deduped
 
@@ -125,7 +150,7 @@ def get_ecowitt_data():
         res = requests.get(url, timeout=10).json()
         if res.get("code") != 0:
             return None
-        
+
         data = res.get("data", {})
         outdoor = data.get("outdoor", {})
         rainfall = data.get("rainfall", {})
@@ -240,7 +265,7 @@ draw.text((24, 22), "BALINGUP DASHBOARD", font=font_title, fill=0)
 draw.text((WIDTH - 240, 24), date_str, font=font_small, fill=0)
 draw.line([(12, 50), (WIDTH - 12, 50)], fill=0, width=2)
 
-# Split screen
+# Split screen vertical line
 draw.line([(430, 50), (430, HEIGHT - 12)], fill=0, width=2)
 
 # --- LEFT: SCHEDULE & CALENDAR ---
@@ -252,7 +277,7 @@ if calendar_events:
     for ev_date, time_str, summary, tag in calendar_events[:11]:
         max_chars = 26
         display_summary = summary[:max_chars] + "..." if len(summary) > max_chars else summary
-        
+
         draw.rectangle([(24, y_pos), (116, y_pos + 18)], fill=0)
         draw.text((30, y_pos + 2), tag, font=font_small, fill=1)
         draw.text((124, y_pos + 2), f"{time_str} - {display_summary}", font=font_sub, fill=0)
