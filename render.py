@@ -33,7 +33,8 @@ def get_calendar_events():
     for idx, url in enumerate(url_list):
         safe_url = url[:40] + "..."
         try:
-            res = requests.get(url, timeout=12)
+            headers = {'User-Agent': 'Mozilla/5.0'}
+            res = requests.get(url, headers=headers, timeout=12)
             log(f"[Feed #{idx+1}] HTTP {res.status_code} ({safe_url})")
             if res.status_code != 200:
                 continue
