@@ -1,64 +1,156 @@
+import os
+import requests
 import datetime
 from PIL import Image, ImageDraw, ImageFont
 
-# Standard 7.5-inch e-Paper resolution (monochrome 800x480)
 WIDTH, HEIGHT = 800, 480
 
-# Create a 1-bit monochrome image (mode '1'), filled with white (255)
+# 1. Fetch live BOM ACCESS-G data for Balingup WA (-33.7865, 115.9838)
+def get_balingup_bom():
+    url = (
+        "https://api.open-meteo.com/v1/bom?"
+        "latitude=-33.7865&longitude=115.9838&"
+        "daily=weather_code,temperature_2m_max,temperature_2m_min,precipitation_sum,precipitation_probability_max&"
+        "timezone=Australia%2FPerth"
+    )
+    try:
+        res = requests.get(url, timeout=10).json()
+        daily = res["daily"]
+        return {
+            "today": {
+                "code": daily["weather_code"][0],
+                "max": round(daily["temperature_2m_max"][0]),
+                "min": round(daily["temperature_2m_min"][0]),
+                "rain_sum": daily["precipitation_sum"][0],
+                "rain_prob": daily["precipitation_probability_max"][0],
+            },
+            "tomorrow": {
+                "code": daily["weather_code"][1],
+                "max": round(daily["temperature_2m_max"][1]),
+                "min": round(daily["temperature_2m_min"][1]),
+                "rain_sum": daily["precipitation_sum"][1],
+                "rain_prob": daily["precipitation_probability_max"][1],
+            }
+        }
+    except Exception as e:
+        print(f"Error fetching BOM: {e}")
+        return None
+
+bom_data = get_balingup_bom()
+
+# 2. Setup Image Canvas (1-bit monochrome)
 img = Image.new('1', (WIDTH, HEIGHT), 255)
 draw = ImageDraw.Draw(img)
 
-# Use default bitmap font for the starter test (no external font files needed yet)
-# We will upgrade to custom TTF typography later once the pipeline works!
-font = ImageFont.load_default()
+# Load fonts (using downloaded DejaVu/Liberation or fallback to default)
+def load_font(size):
+    font_paths = [
+        "/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf",
+        "/usr/share/fonts/truetype/liberation/LiberationSans-Bold.ttf",
+        "DejaVuSans.ttf"
+    ]
+    for p in font_paths:
+        if os.path.exists(p):
+            return ImageFont.truetype(p, size)
+    return ImageFont.load_default()
 
-# 1. Outer Border & Header Banner
-draw.rectangle([(10, 10), (WIDTH - 10, HEIGHT - 10)], outline=0, width=2)
-today_str = datetime.datetime.now().strftime("%A, %d %B %Y").upper()
-draw.text((25, 20), f"KITCHEN DASHBOARD  |  {today_str}", fill=0, font=font)
-draw.line([(10, 45), (WIDTH - 10, 45)], fill=0, width=2)
+font_hero = load_font(46)
+font_title = load_font(20)
+font_sub = load_font(15)
+font_small = load_font(13)
 
-# 2. Vertical Divider (Split screen into Left = Calendar, Right = Weather)
-draw.line([(400, 45), (400, HEIGHT - 10)], fill=0, width=2)
+# 3. Geometric Weather Icon Drawer
+def draw_weather_icon(draw_obj, code, x, y):
+    # Codes 0-1: Sunny / Clear
+    if code in [0, 1]:
+        draw_obj.ellipse([x+10, y+10, x+40, y+40], fill=0) # Solid sun
+        for angle in [(x+25, y-2, x+25, y+6), (x+25, y+44, x+25, y+52),
+                      (x-2, y+25, x+6, y+25), (x+44, y+25, x+52, y+25)]:
+            draw_obj.line(angle, fill=0, width=2)
+    # Codes 2-3: Partly Cloudy / Overcast
+    elif code in [2, 3]:
+        draw_obj.ellipse([x+15, y+10, x+42, y+37], fill=0)
+        draw_obj.ellipse([x+5, y+20, x+28, y+43], fill=0)
+        draw_obj.ellipse([x+22, y+18, x+50, y+43], fill=0)
+        draw_obj.rectangle([x+15, y+28, x+40, y+43], fill=0)
+    # Codes 51-67, 80-82: Rain / Showers
+    else:
+        # Cloud base
+        draw_obj.ellipse([x+12, y+8, x+38, y+34], fill=0)
+        draw_obj.ellipse([x+2, y+18, x+26, y+38], fill=0)
+        draw_obj.ellipse([x+24, y+16, x+48, y+38], fill=0)
+        draw_obj.rectangle([x+12, y+26, x+36, y+38], fill=0)
+        # Rain strokes
+        for rx in [x+10, x+22, x+34]:
+            draw_obj.line([(rx, y+44), (rx-4, y+52)], fill=0, width=2)
 
-# --- LEFT COLUMN: CALENDAR ---
-draw.text((25, 55), "TODAY'S SCHEDULE", fill=0, font=font)
-draw.line([(25, 70), (380, 70)], fill=0, width=1)
+# --- LAYOUT RENDERING ---
 
-events = [
-    "• 07:00 AM - Morning Coffee & Plan",
-    "• 09:30 AM - Work Project Review",
-    "• 12:30 PM - Lunch",
-    "• 04:00 PM - Afternoon Walk",
-    "• 06:30 PM - Dinner"
+# Outer border
+draw.rectangle([(12, 12), (WIDTH - 12, HEIGHT - 12)], outline=0, width=2)
+
+# Top Header Banner
+now_perth = datetime.datetime.utcnow() + datetime.timedelta(hours=8)
+date_str = now_perth.strftime("%A, %d %B %Y").upper()
+draw.text((26, 22), "BALINGUP DASHBOARD", font=font_title, fill=0)
+draw.text((WIDTH - 240, 26), date_str, font=font_small, fill=0)
+draw.line([(12, 54), (WIDTH - 12, 54)], fill=0, width=2)
+
+# Vertical Split (Left = Schedule & Tasks, Right = Ecowitt & BOM)
+draw.line([(410, 54), (410, HEIGHT - 12)], fill=0, width=2)
+
+# --- LEFT: SCHEDULE & TASKS ---
+draw.text((28, 66), "TODAY & TOMORROW", font=font_title, fill=0)
+draw.line([(28, 92), (390, 92)], fill=0, width=1)
+
+schedule_mock = [
+    ("TODAY", "08:30 AM", "Mine Planning Standup"),
+    ("TODAY", "01:00 PM", "Balingup Cottage Review"),
+    ("TODAY", "05:30 PM", "Gravel Loop Training Ride"),
+    ("TOMORROW", "09:00 AM", "Contractor Site Inspection"),
+    ("TASK", "[ ]", "Clean Ecowitt rain funnel"),
+    ("TASK", "[ ]", "Bottle conditioned IPA sample"),
 ]
 
-y_pos = 85
-for event in events:
-    draw.text((25, y_pos), event, fill=0, font=font)
-    y_pos += 25
+y_pos = 106
+for tag, time_str, desc in schedule_mock:
+    # Pill tag
+    draw.rectangle([(28, y_pos), (95, y_pos + 18)], fill=0)
+    draw.text((34, y_pos + 2), tag, font=font_small, fill=1) # Inverted white text
+    draw.text((105, y_pos + 2), f"{time_str} - {desc}", font=font_sub, fill=0)
+    y_pos += 30
 
-# --- RIGHT COLUMN: WEATHER ---
-# Top Right: Live Backyard (Ecowitt)
-draw.text((420, 55), "BACKYARD STATION (ECOWITT)", fill=0, font=font)
-draw.line([(420, 70), (WIDTH - 25, 70)], fill=0, width=1)
+# --- RIGHT TOP: ECOWITT (PREVIOUS 24H & CYCLES) ---
+draw.text((426, 66), "BACKYARD (ECOWITT HISTORY)", font=font_title, fill=0)
+draw.line([(426, 92), (WIDTH - 28, 92)], fill=0, width=1)
 
-draw.text((420, 85), "Temp: 19.5 C  |  Humidity: 58%", fill=0, font=font)
-draw.text((420, 110), "Wind: 14 km/h WSW  |  Gust: 22 km/h", fill=0, font=font)
-draw.text((420, 135), "Rain Today: 0.0 mm  |  Solar: 450 W/m2", fill=0, font=font)
+# Large stats layout
+draw.text((426, 102), "18.4°", font=font_hero, fill=0)
+draw.text((560, 108), "YESTERDAY HIGH: 23.1°C", font=font_small, fill=0)
+draw.text((560, 126), "OVERNIGHT LOW:  7.8°C", font=font_small, fill=0)
 
-# Horizontal divider between Ecowitt and BoM
-draw.line([(400, 175), (WIDTH - 10, 175)], fill=0, width=1)
+draw.text((426, 160), "RAIN (RESET 9AM):", font=font_sub, fill=0)
+draw.text((426, 180), "• Prev 24h: 3.2 mm", font=font_small, fill=0)
+draw.text((570, 180), "• Weekly Total: 18.6 mm", font=font_small, fill=0)
+draw.text((426, 202), "• Last Event: 4.8 mm", font=font_small, fill=0)
 
-# Bottom Right: BoM Forecast
-draw.text((420, 190), "BOM / REGIONAL FORECAST", fill=0, font=font)
-draw.line([(420, 205), (WIDTH - 25, 205)], fill=0, width=1)
+# Horizontal Divider between Ecowitt and BOM
+draw.line([(410, 230), (WIDTH - 12, 230)], fill=0, width=2)
 
-draw.text((420, 220), "Today: Mostly Sunny. Max 24 C. Min 9 C.", fill=0, font=font)
-draw.text((420, 245), "Rain Chance: 10% (0 mm)", fill=0, font=font)
-draw.text((420, 275), "Tomorrow: Partly Cloudy. Max 22 C.", fill=0, font=font)
-draw.text((420, 300), "Rain Chance: 20% (0 - 1 mm)", fill=0, font=font)
+# --- RIGHT BOTTOM: BOM FORECAST WITH ICONS ---
+draw.text((426, 242), "BOM REGIONAL (BALINGUP)", font=font_title, fill=0)
+draw.line([(426, 268), (WIDTH - 28, 268)], fill=0, width=1)
 
-# 3. Save as the target dashboard image
+if bom_data:
+    # Today Card
+    draw_weather_icon(draw, bom_data["today"]["code"], 426, 280)
+    draw.text((485, 278), f"TODAY: Max {bom_data['today']['max']}°C | Min {bom_data['today']['min']}°C", font=font_sub, fill=0)
+    draw.text((485, 300), f"Rain: {bom_data['today']['rain_prob']}% ({bom_data['today']['rain_sum']} mm)", font=font_small, fill=0)
+
+    # Tomorrow Card
+    draw_weather_icon(draw, bom_data["tomorrow"]["code"], 426, 345)
+    draw.text((485, 343), f"TOMORROW: Max {bom_data['tomorrow']['max']}°C | Min {bom_data['tomorrow']['min']}°C", font=font_sub, fill=0)
+    draw.text((485, 365), f"Rain: {bom_data['tomorrow']['rain_prob']}% ({bom_data['tomorrow']['rain_sum']} mm)", font=font_small, fill=0)
+
 img.save("dashboard.png", "PNG")
-print("Successfully generated dashboard.png!")
+print("Saved modern dashboard preview!")
