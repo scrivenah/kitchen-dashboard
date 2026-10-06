@@ -7,7 +7,7 @@ WIDTH, HEIGHT = 800, 480
 
 # 1. Fetch live BOM ACCESS-G data for Balingup WA (-33.7865, 115.9838)
 def get_balingup_bom():
-url = (
+    url = (
         "https://api.open-meteo.com/v1/forecast?"
         "latitude=-33.7865&longitude=115.9838&"
         "models=bom_access_global&"
@@ -64,7 +64,7 @@ font_small = load_font(13)
 def draw_weather_icon(draw_obj, code, x, y):
     # Codes 0-1: Sunny / Clear
     if code in [0, 1]:
-        draw_obj.ellipse([x+10, y+10, x+40, y+40], fill=0) # Solid sun
+        draw_obj.ellipse([x+10, y+10, x+40, y+40], fill=0)
         for angle in [(x+25, y-2, x+25, y+6), (x+25, y+44, x+25, y+52),
                       (x-2, y+25, x+6, y+25), (x+44, y+25, x+52, y+25)]:
             draw_obj.line(angle, fill=0, width=2)
@@ -76,12 +76,10 @@ def draw_weather_icon(draw_obj, code, x, y):
         draw_obj.rectangle([x+15, y+28, x+40, y+43], fill=0)
     # Codes 51-67, 80-82: Rain / Showers
     else:
-        # Cloud base
         draw_obj.ellipse([x+12, y+8, x+38, y+34], fill=0)
         draw_obj.ellipse([x+2, y+18, x+26, y+38], fill=0)
         draw_obj.ellipse([x+24, y+16, x+48, y+38], fill=0)
         draw_obj.rectangle([x+12, y+26, x+36, y+38], fill=0)
-        # Rain strokes
         for rx in [x+10, x+22, x+34]:
             draw_obj.line([(rx, y+44), (rx-4, y+52)], fill=0, width=2)
 
@@ -95,7 +93,7 @@ now_perth = datetime.datetime.utcnow() + datetime.timedelta(hours=8)
 date_str = now_perth.strftime("%A, %d %B %Y").upper()
 draw.text((26, 22), "BALINGUP DASHBOARD", font=font_title, fill=0)
 draw.text((WIDTH - 240, 26), date_str, font=font_small, fill=0)
-draw.line([(12, 54), (WIDTH - 12, 54)], fill=0, width=2)
+draw.line([(12, 54), (WIDTH - 12, 54)], fill=2, width=2)
 
 # Vertical Split (Left = Schedule & Tasks, Right = Ecowitt & BOM)
 draw.line([(410, 54), (410, HEIGHT - 12)], fill=0, width=2)
@@ -115,10 +113,10 @@ schedule_mock = [
 
 y_pos = 106
 for tag, time_str, desc in schedule_mock:
-    # Pill tag (widened to 115 so TOMORROW never clips)
-    draw.rectangle([(28, y_pos), (115, y_pos + 18)], fill=0)
+    # Pill tag (widened to 120 so TOMORROW never clips)
+    draw.rectangle([(28, y_pos), (120, y_pos + 18)], fill=0)
     draw.text((34, y_pos + 2), tag, font=font_small, fill=1) # Inverted white text
-    draw.text((125, y_pos + 2), f"{time_str} - {desc}", font=font_sub, fill=0)
+    draw.text((130, y_pos + 2), f"{time_str} - {desc}", font=font_sub, fill=0)
     y_pos += 30
 
 # --- RIGHT TOP: ECOWITT (PREVIOUS 24H & CYCLES) ---
