@@ -50,7 +50,6 @@ def get_calendar_events():
         is_airbnb = "airbnb" in url.lower()
         is_holiday = "41p9gaols1it9m" in url.lower()
 
-        # Determine category & color accent
         if is_airbnb:
             category_color = COLOR_AIRBNB
         elif is_holiday:
@@ -106,7 +105,6 @@ def get_calendar_events():
                         active_dates.append(curr)
                         curr += datetime.timedelta(days=1)
 
-                    # Expand RRULEs
                     rrule_prop = component.get("rrule")
                     if rrule_prop:
                         try:
@@ -127,7 +125,6 @@ def get_calendar_events():
                         except Exception:
                             pass
 
-                    # Assign Work shift color dynamically by summary if needed
                     event_color = category_color
                     if "work" in summary.lower():
                         event_color = COLOR_WORK
@@ -139,7 +136,6 @@ def get_calendar_events():
         except Exception as e:
             log(f"Feed error: {e}")
 
-    # Deduplicate
     unique = list({(e[0], e[1], e[2]): e for e in raw_events}.values())
     unique.sort(key=lambda x: (x[0], 0 if x[1] == "" else 1, x[1]))
 
@@ -210,7 +206,7 @@ def get_balingup_bom():
     try:
         res = requests.get(url, timeout=10).json()
         if "daily" not in res:
-            log(f"Open-Meteo returned error: {res}")
+            log(f"Open-Meteo error: {res}")
             return None
 
         daily = res["daily"]
@@ -220,7 +216,7 @@ def get_balingup_bom():
         for i in range(3, min(8, len(dates))):
             upcoming_5_days.append({
                 "date": dates[i],
-                "day_name": dates[i].strftime("%a").upper(),
+                "day_name": dates[i].strftime("%a").capitalize(),
                 "code": daily["weathercode"][i]
             })
 
@@ -251,6 +247,7 @@ def get_balingup_bom():
     except Exception as e:
         log(f"BOM error: {e}")
         return None
+
 today_events, tomorrow_events, later_events = get_calendar_events()
 ecowitt = get_ecowitt_data()
 bom = get_balingup_bom()
@@ -275,7 +272,7 @@ font_title = load_font(16)
 font_card_head = load_font(12)
 font_sub = load_font(12)
 font_small = load_font(10)
-font_tiny = load_font(9)
+font_tiny = load_font(10)
 
 def draw_color_weather_icon(draw_obj, code, x, y):
     if code in [0, 1]:  # Sun
@@ -316,24 +313,24 @@ def draw_mini_color_icon(draw_obj, code, x, y):
 draw.rounded_rectangle([(12, 10), (WIDTH - 12, 48)], radius=19, fill=COLOR_CARD, outline=COLOR_BORDER, width=1)
 tz_wa = datetime.timezone(datetime.timedelta(hours=8))
 now_wa = datetime.datetime.now(tz_wa)
-date_str = now_wa.strftime("%A, %d %B %Y").upper()
-time_now_str = now_wa.strftime("%I:%M %p").lstrip('0')
 
-draw.text((28, 20), "BALINGUP DASHBOARD", font=font_title, fill=COLOR_TEXT_DARK)
-draw.text((WIDTH - 230, 23), date_str, font=font_small, fill=COLOR_TEXT_MUTED)
+# Today's date on the left, Updated time on the right
+date_title_str = now_wa.strftime("%A, %d %B %Y")
+time_now_str = now_wa.strftime("%I:%M %p").lstrip('0')
+draw.text((28, 20), date_title_str, font=font_title, fill=COLOR_TEXT_DARK)
+draw.text((WIDTH - 170, 23), f"Updated {time_now_str}", font=font_small, fill=COLOR_TEXT_MUTED)
 
 # --- LEFT COLUMN: AGENDA ---
 # Card 1: Today & Tomorrow
 draw.rounded_rectangle([(12, 58), (435, 335)], radius=22, fill=COLOR_CARD, outline=COLOR_BORDER, width=1)
 
-# Section: TODAY
+# Section: Today
 draw.rounded_rectangle([(24, 70), (105, 92)], radius=11, fill=COLOR_BG, outline=COLOR_BORDER, width=1)
-draw.text((36, 74), "TODAY", font=font_card_head, fill=COLOR_TEXT_DARK)
+draw.text((38, 74), "Today", font=font_card_head, fill=COLOR_TEXT_DARK)
 
 y_cursor = 100
 if today_events:
     for _, t_str, summ, ev_color in today_events[:4]:
-        # Colored dot indicator
         draw.ellipse([28, y_cursor + 4, 34, y_cursor + 10], fill=ev_color)
         label = summ if not t_str else f"{t_str} - {summ}"
         label = label[:36] + "..." if len(label) > 38 else label
@@ -343,10 +340,10 @@ else:
     draw.text((28, y_cursor), "No events scheduled today", font=font_sub, fill=COLOR_TEXT_MUTED)
     y_cursor += 20
 
-# Section: TOMORROW
+# Section: Tomorrow
 y_cursor = max(y_cursor + 6, 185)
-draw.rounded_rectangle([(24, y_cursor), (145, y_cursor + 22)], radius=11, fill=COLOR_BG, outline=COLOR_BORDER, width=1)
-draw.text((36, y_cursor + 4), "TOMORROW", font=font_card_head, fill=COLOR_TEXT_DARK)
+draw.rounded_rectangle([(24, y_cursor), (135, y_cursor + 22)], radius=11, fill=COLOR_BG, outline=COLOR_BORDER, width=1)
+draw.text((36, y_cursor + 4), "Tomorrow", font=font_card_head, fill=COLOR_TEXT_DARK)
 y_cursor += 30
 
 if tomorrow_events:
@@ -361,8 +358,8 @@ else:
 
 # Card 2: Looking Ahead
 draw.rounded_rectangle([(12, 345), (435, 468)], radius=20, fill=COLOR_CARD, outline=COLOR_BORDER, width=1)
-draw.rounded_rectangle([(24, 355), (160, 375)], radius=10, fill=COLOR_BG, outline=COLOR_BORDER, width=1)
-draw.text((34, 358), "LOOKING AHEAD", font=font_small, fill=COLOR_TEXT_DARK)
+draw.rounded_rectangle([(24, 355), (150, 375)], radius=10, fill=COLOR_BG, outline=COLOR_BORDER, width=1)
+draw.text((34, 358), "Looking Ahead", font=font_small, fill=COLOR_TEXT_DARK)
 
 y_ahead = 385
 if later_events:
@@ -379,13 +376,12 @@ else:
 # --- RIGHT COLUMN: WEATHER WIDGETS ---
 # Card 3: Weather Station
 draw.rounded_rectangle([(447, 58), (WIDTH - 12, 250)], radius=22, fill=COLOR_CARD, outline=COLOR_BORDER, width=1)
-draw.rounded_rectangle([(460, 68), (610, 90)], radius=11, fill=COLOR_BG, outline=COLOR_BORDER, width=1)
-draw.text((472, 72), "WEATHER STATION", font=font_card_head, fill=COLOR_TEXT_DARK)
+draw.rounded_rectangle([(460, 68), (595, 90)], radius=11, fill=COLOR_BG, outline=COLOR_BORDER, width=1)
+draw.text((472, 72), "Weather Station", font=font_card_head, fill=COLOR_TEXT_DARK)
 
 if ecowitt:
     draw.text((462, 98), f"{ecowitt['temp_c']}°", font=font_hero, fill=COLOR_TEXT_DARK)
-    draw.text((605, 102), f"HUMIDITY: {ecowitt['humidity']}%", font=font_sub, fill=COLOR_TEXT_DARK)
-    draw.text((605, 120), f"UPDATED {time_now_str}", font=font_small, fill=COLOR_TEXT_MUTED)
+    draw.text((605, 110), f"Humidity: {ecowitt['humidity']}%", font=font_sub, fill=COLOR_TEXT_DARK)
 
     if bom and "yesterday" in bom:
         draw.text((462, 146), f"Yesterday: Max {bom['yesterday']['max']}°C | Min {bom['yesterday']['min']}°C", font=font_small, fill=COLOR_TEXT_MUTED)
@@ -400,18 +396,18 @@ if ecowitt:
 else:
     draw.text((462, 110), "Sensors connecting...", font=font_sub, fill=COLOR_TEXT_MUTED)
 
-# Card 4: Balingup Weather Forecast BOM
+# Card 4: Balingup Weather Forecast
 draw.rounded_rectangle([(447, 260), (WIDTH - 12, 468)], radius=22, fill=COLOR_CARD, outline=COLOR_BORDER, width=1)
-draw.rounded_rectangle([(460, 270), (745, 292)], radius=11, fill=COLOR_BG, outline=COLOR_BORDER, width=1)
-draw.text((472, 274), "BALINGUP WEATHER FORECAST BOM", font=font_card_head, fill=COLOR_TEXT_DARK)
+draw.rounded_rectangle([(460, 270), (700, 292)], radius=11, fill=COLOR_BG, outline=COLOR_BORDER, width=1)
+draw.text((472, 274), "Balingup Weather Forecast", font=font_card_head, fill=COLOR_TEXT_DARK)
 
 if bom:
     draw_color_weather_icon(draw, bom["today"]["code"], 458, 302)
-    draw.text((514, 302), f"TODAY  Max {bom['today']['max']}° | Min {bom['today']['min']}°", font=font_sub, fill=COLOR_TEXT_DARK)
+    draw.text((514, 302), f"Today  Max {bom['today']['max']}° | Min {bom['today']['min']}°", font=font_sub, fill=COLOR_TEXT_DARK)
     draw.text((514, 320), f"Precip: {bom['today']['rain_prob']}% ({bom['today']['rain_sum']} mm)", font=font_small, fill=COLOR_TEXT_MUTED)
 
     draw_color_weather_icon(draw, bom["tomorrow"]["code"], 458, 350)
-    draw.text((514, 350), f"TOMORROW  Max {bom['tomorrow']['max']}° | Min {bom['tomorrow']['min']}°", font=font_sub, fill=COLOR_TEXT_DARK)
+    draw.text((514, 350), f"Tomorrow  Max {bom['tomorrow']['max']}° | Min {bom['tomorrow']['min']}°", font=font_sub, fill=COLOR_TEXT_DARK)
     draw.text((514, 368), f"Precip: {bom['tomorrow']['rain_prob']}% ({bom['tomorrow']['rain_sum']} mm)", font=font_small, fill=COLOR_TEXT_MUTED)
 
     for dx in range(460, WIDTH - 24, 6):
@@ -424,9 +420,9 @@ if bom:
 
         draw_mini_color_icon(draw, item["code"], center_x - 14, 408)
         day_text = item["day_name"]
-        draw.text((center_x - 11, 442), day_text, font=font_tiny, fill=COLOR_TEXT_DARK)
+        draw.text((center_x - 12, 442), day_text, font=font_tiny, fill=COLOR_TEXT_DARK)
 else:
     draw.text((460, 310), "Forecast unavailable", font=font_sub, fill=COLOR_TEXT_MUTED)
 
 img.save("dashboard.png", "PNG")
-log("Saved Full-Color Modern Dashboard successfully!")
+log("Saved cleanly formatted dashboard successfully!")
