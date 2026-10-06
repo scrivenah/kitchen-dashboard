@@ -28,6 +28,10 @@ jobs:
           pip install -r requirements.txt
 
       - name: Run Script to Render Dashboard
+        env:
+          ECOWITT_APPLICATION_KEY: ${{ secrets.ECOWITT_APPLICATION_KEY }}
+          ECOWITT_API_KEY: ${{ secrets.ECOWITT_API_KEY }}
+          ECOWITT_MAC: ${{ secrets.ECOWITT_MAC }}
         run: |
           python render.py
 
