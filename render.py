@@ -1,18 +1,73 @@
 import os
 import requests
 import datetime
+from icalendar import Calendar
 from PIL import Image, ImageDraw, ImageFont
 
 WIDTH, HEIGHT = 800, 480
 
-# 1. Fetch live Ecowitt Station Data
+# --- 1. GOOGLE CALENDAR FETCHER & PARSER ---
+def get_calendar_events():
+    ics_urls = os.environ.get("CALENDAR_ICS_URLS", "")
+    if not ics_urls:
+        print("No CALENDAR_ICS_URLS found in environment.")
+        return []
+
+    # WA Timezone offset (AWST is UTC+8)
+    tz_wa = datetime.timezone(datetime.timedelta(hours=8))
+    now = datetime.datetime.now(tz_wa)
+    today = now.date()
+    tomorrow = today + datetime.timedelta(days=1)
+
+    events = []
+
+    for url in ics_urls.split(","):
+        url = url.strip()
+        if not url:
+            continue
+        try:
+            res = requests.get(url, timeout=10)
+            if res.status_code != 200:
+                print(f"Calendar URL returned status {res.status_code}: {url[:40]}...")
+                continue
+            cal = Calendar.from_ical(res.text)
+            for component in cal.walk():
+                if component.name == "VEVENT":
+                    summary = str(component.get("summary", "Untitled"))
+                    dtstart_prop = component.get("dtstart")
+                    if not dtstart_prop:
+                        continue
+                    dtstart = dtstart_prop.dt
+
+                    # Handle all-day vs timed events
+                    if isinstance(dtstart, datetime.datetime):
+                        dt_local = dtstart.astimezone(tz_wa)
+                        ev_date = dt_local.date()
+                        time_str = dt_local.strftime("%I:%M %p")
+                    elif isinstance(dtstart, datetime.date):
+                        ev_date = dtstart
+                        time_str = "All Day"
+                    else:
+                        continue
+
+                    if ev_date == today:
+                        events.append((ev_date, time_str, summary, "TODAY"))
+                    elif ev_date == tomorrow:
+                        events.append((ev_date, time_str, summary, "TOMORROW"))
+        except Exception as e:
+            print(f"Error reading calendar feed: {e}")
+
+    # Sort chronologically (All Day first, then by time)
+    events.sort(key=lambda x: (x[0], 0 if x[1] == "All Day" else 1, x[1]))
+    return events
+
+# --- 2. ECOWITT DATA FETCHER ---
 def get_ecowitt_data():
     app_key = os.environ.get("ECOWITT_APPLICATION_KEY")
     api_key = os.environ.get("ECOWITT_API_KEY")
     mac = os.environ.get("ECOWITT_MAC")
 
     if not all([app_key, api_key, mac]):
-        print("Ecowitt credentials missing from environment.")
         return None
 
     url = (
@@ -25,49 +80,37 @@ def get_ecowitt_data():
     try:
         res = requests.get(url, timeout=10).json()
         if res.get("code") != 0:
-            print(f"Ecowitt API returned error: {res}")
             return None
         
         data = res.get("data", {})
         outdoor = data.get("outdoor", {})
         rainfall = data.get("rainfall", {})
 
-        # Temperature (convert F to C if returned in F, otherwise raw)
         temp_val = float(outdoor.get("temperature", {}).get("value", 0))
         temp_unit = outdoor.get("temperature", {}).get("unit", "C")
-        if "F" in temp_unit:
-            temp_c = round((temp_val - 32) * 5 / 9, 1)
-        else:
-            temp_c = round(temp_val, 1)
+        temp_c = round((temp_val - 32) * 5 / 9, 1) if "F" in temp_unit else round(temp_val, 1)
 
         humidity = outdoor.get("humidity", {}).get("value", "--")
 
-        # Rainfall conversion (inches to mm if needed)
         def to_mm(metric_dict):
             if not metric_dict:
                 return 0.0
             val = float(metric_dict.get("value", 0.0))
             unit = metric_dict.get("unit", "mm")
-            if "in" in unit.lower():
-                return round(val * 25.4, 1)
-            return round(val, 1)
-
-        rain_event = to_mm(rainfall.get("event"))
-        rain_24h = to_mm(rainfall.get("daily"))
-        rain_weekly = to_mm(rainfall.get("weekly"))
+            return round(val * 25.4, 1) if "in" in unit.lower() else round(val, 1)
 
         return {
             "temp_c": temp_c,
             "humidity": humidity,
-            "rain_event": rain_event,
-            "rain_24h": rain_24h,
-            "rain_weekly": rain_weekly,
+            "rain_event": to_mm(rainfall.get("event")),
+            "rain_24h": to_mm(rainfall.get("daily")),
+            "rain_weekly": to_mm(rainfall.get("weekly")),
         }
     except Exception as e:
         print(f"Error fetching Ecowitt data: {e}")
         return None
 
-# 2. Fetch live BOM forecast for Balingup WA (-33.7865, 115.9838)
+# --- 3. BOM FORECAST FETCHER ---
 def get_balingup_bom():
     url = (
         "https://api.open-meteo.com/v1/forecast?"
@@ -98,10 +141,11 @@ def get_balingup_bom():
         print(f"Error fetching BOM: {e}")
         return None
 
+calendar_events = get_calendar_events()
 ecowitt = get_ecowitt_data()
 bom_data = get_balingup_bom()
 
-# 3. Setup Image Canvas (1-bit monochrome)
+# --- 4. DRAWING CANVAS ---
 img = Image.new('1', (WIDTH, HEIGHT), 255)
 draw = ImageDraw.Draw(img)
 
@@ -118,22 +162,17 @@ def load_font(size):
 
 font_hero = load_font(42)
 font_title = load_font(18)
-font_sub = load_font(14)
-font_small = load_font(12)
+font_sub = load_font(13)
+font_small = load_font(11)
 
-# Geometric Weather Icon Drawer
 def draw_weather_icon(draw_obj, code, x, y):
     if code in [0, 1]:
         draw_obj.ellipse([x+8, y+8, x+36, y+36], fill=0)
         for p1, p2 in [
-            ((x+22, y), (x+22, y+6)),
-            ((x+22, y+38), (x+22, y+44)),
-            ((x, y+22), (x+6, y+22)),
-            ((x+38, y+22), (x+44, y+22)),
-            ((x+6, y+6), (x+11, y+11)),
-            ((x+33, y+33), (x+38, y+38)),
-            ((x+6, y+38), (x+11, y+33)),
-            ((x+33, y+11), (x+38, y+6))
+            ((x+22, y), (x+22, y+6)), ((x+22, y+38), (x+22, y+44)),
+            ((x, y+22), (x+6, y+22)), ((x+38, y+22), (x+44, y+22)),
+            ((x+6, y+6), (x+11, y+11)), ((x+33, y+33), (x+38, y+38)),
+            ((x+6, y+38), (x+11, y+33)), ((x+33, y+11), (x+38, y+6))
         ]:
             draw_obj.line([p1, p2], fill=0, width=2)
     elif code in [2, 3]:
@@ -149,42 +188,35 @@ def draw_weather_icon(draw_obj, code, x, y):
         for rx in [x+12, x+22, x+32]:
             draw_obj.line([(rx, y+38), (rx-3, y+46)], fill=0, width=2)
 
-# --- LAYOUT RENDERING ---
-
-# Outer border
+# Outer border & header
 draw.rectangle([(12, 12), (WIDTH - 12, HEIGHT - 12)], outline=0, width=2)
-
-# Top Header Banner
 now_perth = datetime.datetime.utcnow() + datetime.timedelta(hours=8)
 date_str = now_perth.strftime("%A, %d %B %Y").upper()
 draw.text((24, 22), "BALINGUP DASHBOARD", font=font_title, fill=0)
 draw.text((WIDTH - 240, 24), date_str, font=font_small, fill=0)
 draw.line([(12, 50), (WIDTH - 12, 50)], fill=0, width=2)
 
-# Vertical Split
+# Split screen
 draw.line([(430, 50), (430, HEIGHT - 12)], fill=0, width=2)
 
-# --- LEFT: SCHEDULE & TASKS ---
+# --- LEFT: SCHEDULE & CALENDAR ---
 draw.text((24, 62), "TODAY & TOMORROW", font=font_title, fill=0)
 draw.line([(24, 86), (410, 86)], fill=0, width=1)
 
-schedule_mock = [
-    ("TODAY", "08:30 AM", "Mine Planning Standup"),
-    ("TODAY", "01:00 PM", "Balingup Cottage Review"),
-    ("TODAY", "05:30 PM", "Gravel Loop Training Ride"),
-    ("TOMORROW", "09:00 AM", "Contractor Site Inspection"),
-    ("TASK", "[ ]", "Clean Ecowitt rain funnel"),
-    ("TASK", "[ ]", "Bottle conditioned IPA sample"),
-]
-
 y_pos = 98
-for tag, time_str, desc in schedule_mock:
-    draw.rectangle([(24, y_pos), (116, y_pos + 18)], fill=0)
-    draw.text((30, y_pos + 2), tag, font=font_small, fill=1)
-    draw.text((124, y_pos + 2), f"{time_str} - {desc}", font=font_sub, fill=0)
-    y_pos += 28
+if calendar_events:
+    for ev_date, time_str, summary, tag in calendar_events[:11]:
+        max_chars = 26
+        display_summary = summary[:max_chars] + "..." if len(summary) > max_chars else summary
+        
+        draw.rectangle([(24, y_pos), (116, y_pos + 18)], fill=0)
+        draw.text((30, y_pos + 2), tag, font=font_small, fill=1)
+        draw.text((124, y_pos + 2), f"{time_str} - {display_summary}", font=font_sub, fill=0)
+        y_pos += 28
+else:
+    draw.text((24, y_pos), "No upcoming events scheduled.", font=font_sub, fill=0)
 
-# --- RIGHT TOP: ECOWITT (LIVE & CYCLE STATS) ---
+# --- RIGHT TOP: ECOWITT ---
 draw.text((444, 62), "BACKYARD (ECOWITT)", font=font_title, fill=0)
 draw.line([(444, 86), (WIDTH - 24, 86)], fill=0, width=1)
 
@@ -200,10 +232,9 @@ if ecowitt:
 else:
     draw.text((444, 110), "Station Offline or Syncing...", font=font_sub, fill=0)
 
-# Horizontal Divider between Ecowitt and BOM
 draw.line([(430, 222), (WIDTH - 12, 222)], fill=0, width=2)
 
-# --- RIGHT BOTTOM: BOM FORECAST WITH ICONS ---
+# --- RIGHT BOTTOM: BOM FORECAST ---
 draw.text((444, 234), "BOM REGIONAL (BALINGUP)", font=font_title, fill=0)
 draw.line([(444, 258), (WIDTH - 24, 258)], fill=0, width=1)
 
@@ -219,4 +250,4 @@ else:
     draw.text((444, 280), "Forecast unavailable", font=font_sub, fill=0)
 
 img.save("dashboard.png", "PNG")
-print("Saved dashboard preview with live Ecowitt!")
+print("Saved complete dashboard preview with live Google Calendar!")
