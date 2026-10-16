@@ -1,9 +1,39 @@
 import os
 import json
 import re
+import time
 import requests
 from recipe_scrapers import scrape_html
 from google import genai
+
+def convert_units_to_metric(text):
+    # Fahrenheit to Celsius
+    def f_to_c(m):
+        f = float(m.group(1))
+        c = round(((f - 32) * 5 / 9) / 5) * 5
+        return f"{c}°C"
+    text = re.sub(r'(\d+(?:\.\d+)?)\s*(?:°\s*|degrees?\s*)?[Ff](?:ahrenheit)?\b', f_to_c, text)
+
+    # Pounds to grams / kg
+    def lbs_to_metric(m):
+        val = float(m.group(1))
+        grams = val * 453.592
+        return f"{round(grams / 1000, 1)} kg" if grams >= 1000 else f"{round(grams)} g"
+    text = re.sub(r'(\d+(?:\.\d+)?)\s*(?:lbs?|pounds?)\b', lbs_to_metric, text, flags=re.IGNORECASE)
+
+    # Ounces to grams
+    def oz_to_g(m):
+        val = float(m.group(1))
+        return f"{round(val * 28.35)} g"
+    text = re.sub(r'(\d+(?:\.\d+)?)\s*(?:oz|ounces?)\b', oz_to_g, text, flags=re.IGNORECASE)
+
+    # Sticks of butter
+    def sticks_to_g(m):
+        val = float(m.group(1))
+        return f"{round(val * 113)} g butter"
+    text = re.sub(r'(\d+(?:\.\d+)?)\s*sticks?\s+of\s+butter\b', sticks_to_g, text, flags=re.IGNORECASE)
+
+    return text
 
 def condense_with_gemini(raw_title, raw_yields, raw_time, raw_ingredients, raw_instructions):
     api_key = os.environ.get("GEMINI_API_KEY")
@@ -11,11 +41,9 @@ def condense_with_gemini(raw_title, raw_yields, raw_time, raw_ingredients, raw_i
         print("ERROR: GEMINI_API_KEY environment variable is missing or empty!")
         return None
 
-    try:
-        # Explicitly initialize with the API key
-        client = genai.Client(api_key=api_key)
+    client = genai.Client(api_key=api_key)
 
-        prompt = f"""
+    prompt = f"""
 You are an expert chef's assistant formatting a recipe for an 800x480 e-paper kitchen display.
 Your job is to condense the recipe so it fits on a SINGLE screen with zero fluff.
 
@@ -44,18 +72,33 @@ Output strictly valid JSON matching this schema:
 }}
 """
 
-        # Using gemini-2.5-flash which is the active free-tier standard
-        response = client.models.generate_content(
-    model="gemini-3.8-flash",
-    contents=prompt,
-    config={"response_mime_type": "application/json"}
-)
-        print("SUCCESS: Gemini condensed the recipe successfully!")
-        return json.loads(response.text)
+    candidate_models = [
+        "gemini-2.5-flash-lite",
+        "gemini-3.8-flash",
+        "gemini-flash-latest"
+    ]
 
-    except Exception as e:
-        print(f"CRITICAL ERROR in Gemini call: {e}")
-        return None
+    for model_name in candidate_models:
+        for attempt in range(2):
+            try:
+                print(f"Attempting condensation with model: {model_name} (try {attempt + 1})...")
+                response = client.models.generate_content(
+                    model=model_name,
+                    contents=prompt,
+                    config={"response_mime_type": "application/json"}
+                )
+                print(f"SUCCESS: Gemini ({model_name}) condensed the recipe successfully!")
+                return json.loads(response.text)
+            except Exception as e:
+                err_msg = str(e)
+                print(f"Warning: {model_name} failed with: {err_msg}")
+                if "503" in err_msg or "UNAVAILABLE" in err_msg:
+                    time.sleep(2)
+                    continue
+                break
+
+    print("All AI attempts exhausted; falling back to basic raw scraper.")
+    return None
 
 def parse_and_save(url):
     headers = {
@@ -76,11 +119,12 @@ def parse_and_save(url):
 
     if not condensed:
         print("Falling back to basic raw scraper fallback...")
+        clean_ingredients = [convert_units_to_metric(i.strip()) for i in raw_ingredients if i.strip()]
         condensed = {
             "title": raw_title[:35],
             "meta": f"Yield: {raw_yields} • {raw_time} mins" if raw_time else f"Yield: {raw_yields}",
-            "ingredients": [i.strip() for i in raw_ingredients[:12]],
-            "steps": [s.split(". ")[0].strip() for s in raw_instructions[:6]]
+            "ingredients": clean_ingredients[:12],
+            "steps": [convert_units_to_metric(s.split(". ")[0].strip()) for s in raw_instructions[:6]]
         }
 
     with open("current_recipe.json", "w") as f:
