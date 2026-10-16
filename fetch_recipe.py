@@ -33,7 +33,7 @@ def convert_units_to_metric(text):
     return text
 
 def parse_and_save(url):
-    scraper = scrape_me(url, wild_mode=True)
+    scraper = scrape_me(url)
 
     title = scraper.title()
     yields = scraper.yields()
