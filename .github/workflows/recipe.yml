@@ -27,11 +27,12 @@ jobs:
 
       - name: Install Dependencies
         run: |
-          pip install recipe-scrapers pillow requests
+          pip install recipe-scrapers pillow requests google-genai
 
       - name: Scrape & Render Recipe
         env:
           RECIPE_URL: ${{ github.event.client_payload.url || github.event.inputs.recipe_url }}
+          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
         run: |
           python fetch_recipe.py
           python render_recipe.py
