@@ -8,7 +8,7 @@ on:
       recipe_url:
         description: 'Paste Recipe URL Here'
         required: true
-        default: 'https://www.seriouseats.com/the-best-roast-potatoes-recipe'
+        default: 'https://www.bbcgoodfood.com/recipes/best-ever-chocolate-brownies-recipe'
 
 jobs:
   build-recipe:
