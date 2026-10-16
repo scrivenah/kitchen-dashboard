@@ -1,37 +1,52 @@
 import os
 import json
-import re
 import requests
 from recipe_scrapers import scrape_html
+from google import genai
 
-def convert_units_to_metric(text):
-    # Fahrenheit to Celsius
-    def f_to_c(m):
-        f = float(m.group(1))
-        c = round(((f - 32) * 5 / 9) / 5) * 5
-        return f"{c}°C"
-    text = re.sub(r'(\d+(?:\.\d+)?)\s*(?:°\s*|degrees?\s*)?[Ff](?:ahrenheit)?\b', f_to_c, text)
+def condense_with_gemini(raw_title, raw_yields, raw_time, raw_ingredients, raw_instructions):
+    api_key = os.environ.get("GEMINI_API_KEY")
+    if not api_key:
+        print("GEMINI_API_KEY not found; falling back to raw truncation.")
+        return None
 
-    # Pounds to grams / kg
-    def lbs_to_metric(m):
-        val = float(m.group(1))
-        grams = val * 453.592
-        return f"{round(grams / 1000, 1)} kg" if grams >= 1000 else f"{round(grams)} g"
-    text = re.sub(r'(\d+(?:\.\d+)?)\s*(?:lbs?|pounds?)\b', lbs_to_metric, text, flags=re.IGNORECASE)
+    client = genai.Client(api_key=api_key)
 
-    # Ounces to grams
-    def oz_to_g(m):
-        val = float(m.group(1))
-        return f"{round(val * 28.35)} g"
-    text = re.sub(r'(\d+(?:\.\d+)?)\s*(?:oz|ounces?)\b', oz_to_g, text, flags=re.IGNORECASE)
+    prompt = f"""
+You are an expert chef's assistant formatting a recipe for an 800x480 e-paper kitchen display.
+Your job is to condense the recipe so it fits on a SINGLE screen with zero fluff.
 
-    # Sticks of butter
-    def sticks_to_g(m):
-        val = float(m.group(1))
-        return f"{round(val * 113)} g butter"
-    text = re.sub(r'(\d+(?:\.\d+)?)\s*sticks?\s+of\s+butter\b', sticks_to_g, text, flags=re.IGNORECASE)
+Recipe: {raw_title}
+Yield: {raw_yields}
+Time: {raw_time}
 
-    return text
+Raw Ingredients:
+{chr(10).join(raw_ingredients)}
+
+Raw Steps:
+{chr(10).join(raw_instructions)}
+
+Requirements:
+1. "title": Shortened title under 35 characters.
+2. "meta": Concise summary like "Serves 4 • 45 mins".
+3. "ingredients": List of essential ingredients. Convert all units to metric (grams, ml, °C). Max 12 items.
+4. "steps": Exactly 5 to 6 concise, numbered action steps. Each step MUST be under 20 words, but keep vital temperatures, pan sizes, and baking times. Fix any weird website scraper text.
+
+Output strictly valid JSON matching this schema:
+{{
+  "title": "...",
+  "meta": "...",
+  "ingredients": ["...", "..."],
+  "steps": ["...", "..."]
+}}
+"""
+
+    response = client.models.generate_content(
+        model="gemini-2.5-flash",
+        contents=prompt,
+        config={"response_mime_type": "application/json"}
+    )
+    return json.loads(response.text)
 
 def parse_and_save(url):
     headers = {
@@ -40,36 +55,28 @@ def parse_and_save(url):
     response = requests.get(url, headers=headers, timeout=15)
     response.raise_for_status()
 
-    # Use scrape_html with the fetched HTML
     scraper = scrape_html(response.text, org_url=url)
 
-    title = scraper.title()
-    yields = scraper.yields()
-    total_time = scraper.total_time()
-
+    raw_title = scraper.title()
+    raw_yields = scraper.yields()
+    raw_time = scraper.total_time()
     raw_ingredients = scraper.ingredients()
     raw_instructions = scraper.instructions_list()
 
-    clean_ingredients = [convert_units_to_metric(i.strip()) for i in raw_ingredients if i.strip()]
+    # Condense cleanly using free Gemini Flash
+    condensed = condense_with_gemini(raw_title, raw_yields, raw_time, raw_ingredients, raw_instructions)
 
-    summary_steps = []
-    for step in raw_instructions:
-        cleaned = convert_units_to_metric(step.strip())
-        if cleaned:
-            first_sentence = cleaned.split(". ")[0].rstrip(".")
-            if len(first_sentence) > 95:
-                first_sentence = first_sentence[:92] + "..."
-            summary_steps.append(first_sentence)
-
-    recipe_payload = {
-        "title": title[:38],
-        "meta": f"Yield: {yields}  •  {total_time} mins" if total_time else f"Yield: {yields}",
-        "ingredients": clean_ingredients[:14],
-        "steps": summary_steps[:6]
-    }
+    if not condensed:
+        # Fallback if API key is missing
+        condensed = {
+            "title": raw_title[:35],
+            "meta": f"Yield: {raw_yields} • {raw_time} mins" if raw_time else f"Yield: {raw_yields}",
+            "ingredients": [i.strip() for i in raw_ingredients[:12]],
+            "steps": [s.split(". ")[0].strip() for s in raw_instructions[:6]]
+        }
 
     with open("current_recipe.json", "w") as f:
-        json.dump(recipe_payload, f, indent=2)
+        json.dump(condensed, f, indent=2)
 
 if __name__ == "__main__":
     recipe_url = os.environ.get("RECIPE_URL", "https://www.bbcgoodfood.com/recipes/best-ever-chocolate-brownies-recipe")
