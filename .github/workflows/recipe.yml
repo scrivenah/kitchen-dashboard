@@ -1,0 +1,45 @@
+name: Generate Kitchen Recipe
+
+on:
+  repository_dispatch:
+    types: [new_recipe]
+  workflow_dispatch:
+    inputs:
+      recipe_url:
+        description: 'Paste Recipe URL Here'
+        required: true
+        default: 'https://www.seriouseats.com/the-best-roast-potatoes-recipe'
+
+jobs:
+  build-recipe:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+          cache: 'pip'
+
+      - name: Install Dependencies
+        run: |
+          pip install recipe-scrapers pillow requests
+
+      - name: Scrape & Render Recipe
+        env:
+          RECIPE_URL: ${{ github.event.client_payload.url || github.event.inputs.recipe_url }}
+        run: |
+          python fetch_recipe.py
+          python render_recipe.py
+
+      - name: Commit Recipe Graphic
+        run: |
+          git config --global user.name "Kitchen Bot"
+          git config --global user.email "bot@local"
+          git add current_recipe.json recipe.png
+          git commit -m "Update active recipe [skip ci]" || exit 0
+          git push
