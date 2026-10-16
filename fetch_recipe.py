@@ -10,9 +10,10 @@ def condense_with_gemini(raw_title, raw_yields, raw_time, raw_ingredients, raw_i
         print("GEMINI_API_KEY not found; falling back to raw truncation.")
         return None
 
-    client = genai.Client(api_key=api_key)
+    try:
+        client = genai.Client(api_key=api_key)
 
-    prompt = f"""
+        prompt = f"""
 You are an expert chef's assistant formatting a recipe for an 800x480 e-paper kitchen display.
 Your job is to condense the recipe so it fits on a SINGLE screen with zero fluff.
 
@@ -41,12 +42,15 @@ Output strictly valid JSON matching this schema:
 }}
 """
 
-    response = client.models.generate_content(
-        model="gemini-3.8-flash",
-        contents=prompt,
-        config={"response_mime_type": "application/json"}
-    )
-    return json.loads(response.text)
+        response = client.models.generate_content(
+            model="gemini-2.0-flash",
+            contents=prompt,
+            config={"response_mime_type": "application/json"}
+        )
+        return json.loads(response.text)
+    except Exception as e:
+        print(f"Gemini call failed ({e}); using direct fallback.")
+        return None
 
 def parse_and_save(url):
     headers = {
