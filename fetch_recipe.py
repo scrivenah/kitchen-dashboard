@@ -2,7 +2,7 @@ import os
 import json
 import re
 import requests
-from recipe_scrapers import scrape_me
+from recipe_scrapers import scrape_html
 
 def convert_units_to_metric(text):
     # Fahrenheit to Celsius
@@ -34,15 +34,14 @@ def convert_units_to_metric(text):
     return text
 
 def parse_and_save(url):
-    # Spoof a standard desktop browser to avoid 403 Forbidden blocks
     headers = {
         'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'
     }
     response = requests.get(url, headers=headers, timeout=15)
     response.raise_for_status()
 
-    # Pass the retrieved HTML directly to the scraper
-    scraper = scrape_me(url, html=response.text)
+    # Use scrape_html with the fetched HTML
+    scraper = scrape_html(response.text, org_url=url)
 
     title = scraper.title()
     yields = scraper.yields()
@@ -73,5 +72,5 @@ def parse_and_save(url):
         json.dump(recipe_payload, f, indent=2)
 
 if __name__ == "__main__":
-    recipe_url = os.environ.get("RECIPE_URL", "https://www.seriouseats.com/the-best-roast-potatoes-recipe")
+    recipe_url = os.environ.get("RECIPE_URL", "https://www.bbcgoodfood.com/recipes/best-ever-chocolate-brownies-recipe")
     parse_and_save(recipe_url)
