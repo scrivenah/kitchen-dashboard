@@ -1,6 +1,7 @@
 import os
 import json
 import re
+import requests
 from recipe_scrapers import scrape_me
 
 def convert_units_to_metric(text):
@@ -33,7 +34,15 @@ def convert_units_to_metric(text):
     return text
 
 def parse_and_save(url):
-    scraper = scrape_me(url)
+    # Spoof a standard desktop browser to avoid 403 Forbidden blocks
+    headers = {
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'
+    }
+    response = requests.get(url, headers=headers, timeout=15)
+    response.raise_for_status()
+
+    # Pass the retrieved HTML directly to the scraper
+    scraper = scrape_me(url, html=response.text)
 
     title = scraper.title()
     yields = scraper.yields()
