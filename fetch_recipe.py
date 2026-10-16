@@ -46,10 +46,10 @@ Output strictly valid JSON matching this schema:
 
         # Using gemini-2.5-flash which is the active free-tier standard
         response = client.models.generate_content(
-            model="gemini-2.5-flash",
-            contents=prompt,
-            config={"response_mime_type": "application/json"}
-        )
+    model="gemini-3.8-flash",
+    contents=prompt,
+    config={"response_mime_type": "application/json"}
+)
         print("SUCCESS: Gemini condensed the recipe successfully!")
         return json.loads(response.text)
 
