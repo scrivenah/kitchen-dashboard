@@ -1,25 +1,21 @@
 {
-  "title": "Simple Home Edit's Beef Burger",
-  "meta": "Serves 4 \u2022 22 mins",
+  "title": "Lulu's Beef & Broccoli Fried Rice",
+  "meta": "Serves 4 \u2022 30 mins \u2022 585 kcal",
   "ingredients": [
-    "500g ground beef",
-    "30g panko breadcrumbs",
-    "1 egg",
-    "1 tbsp Worcestershire sauce",
-    "2 tbsp ketchup",
-    "1 tsp sea salt, 0.5 tsp pepper",
-    "2 tbsp olive oil",
-    "4 brioche rolls",
-    "4 slices gouda cheese",
-    "2 tomatoes, 1 red onion, lettuce",
-    "2 tbsp gherkins, mayo, mustard"
+    "Beef: 500g lean steak, sliced",
+    "Beef Marinade: 1 tbsp oyster, 2 tsp soy, 1 tsp baking soda, 2 tsp cornstarch",
+    "Sauce: 2 tbsp oyster, 3 tbsp soy, 1 tbsp Shaoxing wine, 1 tbsp sugar",
+    "Sauce 2: 1 tsp sesame oil, 0.5 tsp 5-spice, 0.5 tsp pepper, 2 tbsp water",
+    "Base: 0.5 tbsp oil, 4 cups cooked jasmine rice, 4 cups broccoli florets",
+    "Aromatics: 5 cloves garlic, 2 tsp ginger, 3 spring onions",
+    "Toppings: 4 fried eggs, chilli oil, sesame seeds"
   ],
   "steps": [
-    "Combine beef, breadcrumbs, egg, Worcestershire sauce, half the ketchup, salt, and pepper in a bowl.",
-    "Divide the mixture into 4 portions and shape them into patties slightly larger than your buns.",
-    "Press a thumb into the center of each patty to prevent shrinking while cooking in the pan.",
-    "Heat olive oil in a heavy frying pan over medium-high heat and cook patties for 10 to 12 minutes.",
-    "Turn the patties halfway through cooking and optionally add water in the final two minutes.",
-    "Assemble the toasted brioche buns with cooked patties, cheese, vegetables, and desired condiments."
+    "Combine sliced beef with oyster sauce, dark soy sauce, baking soda, cornstarch, and white pepper, then rest for fifteen minutes.",
+    "Pour boiling water over the broccoli florets, let sit for two minutes, and drain thoroughly.",
+    "Heat oil in a large pan over high heat, stir-fry the beef for two to three minutes until browned, then set aside.",
+    "Stir-fry garlic, ginger, and spring onion whites in oil for one minute, then add rice and cook until hot and toasted.",
+    "Add broccoli, sauce, and cooked beef back to the pan, toss until heated through, and stir in spring onion greens.",
+    "Serve hot topped with a fried egg, a drizzle of chilli oil, and a sprinkle of sesame seeds."
   ]
 }
