@@ -1,19 +1,22 @@
 {
-  "title": "RecipeTin's Three Cup Chicken",
-  "meta": "Serves 4 \u2022 ~420 kcal \u2022 18 mins",
+  "title": "Lulu's Beef & Broccoli Fried Rice",
+  "meta": "Serves 4 \u2022 585 kcal",
   "ingredients": [
-    "1.5 tbsp canola oil & 1.5 tbsp toasted sesame oil",
-    "600g boneless skinless chicken thighs, 2.5cm pieces",
-    "6 ginger slices (3mm thick) & 1.5 tbsp minced garlic",
-    "2 dried red chillies & 1 cup Thai basil leaves",
-    "Sauce: 2 tbsp light soy, 2 tsp dark soy, 2 tsp sugar, 2 tbsp cooking wine",
-    "White rice for serving"
+    "Beef & marinade: 500g lean steak, 1 tbsp oyster sauce, 2 tsp dark soy, 1 tsp baking soda, 2 tsp cornstarch",
+    "Sauce: 2 tbsp oyster sauce, 2 tbsp soy sauce, 1 tbsp dark soy, 1 tbsp Shaoxing wine, 1 tbsp coconut sugar, 1 tsp sesame oil, 0.5 tsp each Chinese 5-spice & white pepper, 2 tbsp water",
+    "0.5 tbsp oil",
+    "4 cups day-old jasmine rice",
+    "4 cups small broccoli florets",
+    "5 cloves garlic minced & 2 tsp ginger paste",
+    "3 spring onions separated",
+    "To serve: 4 fried eggs, chilli oil, sesame seeds"
   ],
   "steps": [
-    "Heat oil in a non-stick pan over medium-low, add ginger and chillies, and stir for 30 seconds.",
-    "Turn heat to high, add chicken, and stir until surface turns white but is still raw inside.",
-    "Add garlic and stir for another 30 seconds before pouring in the prepared sauce mixture.",
-    "Simmer on medium-high for 5 minutes, stirring frequently until the sauce reduces to a thin syrup.",
-    "Stir in sesame oil and Thai basil leaves, cooking for 15 seconds until wilted, then serve over rice."
+    "Marinate sliced beef with oyster sauce, dark soy, baking soda, cornstarch, and white pepper for 15 minutes.",
+    "Cover broccoli with boiling water for 1 to 2 minutes, then drain thoroughly.",
+    "Heat oil in a wok over high heat and stir-fry beef for 2 to 3 minutes until browned; set aside.",
+    "Stir-fry garlic, ginger, and spring onion whites in oil on high heat for 1 minute before adding rice.",
+    "Toss in rice, broccoli, and mixed sauce, stir-frying for 2 minutes until hot and well coated.",
+    "Return beef to pan, toss until heated through, stir in green spring onions, and serve with fried egg."
   ]
 }
