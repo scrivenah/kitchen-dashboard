@@ -44,3 +44,13 @@ jobs:
           git add current_recipe.json recipe.png
           git commit -m "Update active recipe [skip ci]" || exit 0
           git push
+
+          - name: Send Completion Notification
+        if: success()
+        run: |
+          curl \
+            -H "Title: Recipe Ready 🍳" \
+            -H "Priority: high" \
+            -H "Tags: white_check_mark,shallow_pan_of_food" \
+            -d "Recipe card generated and pushed to repo!" \
+            https://ntfy.sh/scriv-kitchen-recipe
