@@ -117,7 +117,10 @@ def parse_and_save(recipe_url):
         
     response.raise_for_status()
 
-    scraper = scrape_me(recipe_url, html=response.text)
+    try:
+    scraper = scrape_me(recipe_url, html_str=response.text)
+except TypeError:
+    scraper = scrape_me(recipe_url)
 
     raw_title = scraper.title()
     try:
