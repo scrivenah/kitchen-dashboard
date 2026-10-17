@@ -3,6 +3,7 @@ import sys
 import json
 import time
 import re
+from urllib.parse import urlparse
 
 try:
     from curl_cffi import requests as c_requests
@@ -12,7 +13,48 @@ except ImportError:
 from recipe_scrapers import scrape_me, scrape_html
 from google import genai
 
-def condense_with_gemini(recipe_url, raw_title, raw_yields, raw_time, raw_ingredients, raw_instructions):
+def extract_instagram_caption(insta_url):
+    """Extracts caption text from an Instagram post or reel via public embed."""
+    # Clean the URL and extract shortcode (supports /p/, /reel/, /reels/)
+    match = re.search(r'instagram\.com/(?:p|reel|reels)/([^/?#&]+)', insta_url)
+    if not match:
+        raise ValueError("Could not parse Instagram post/reel ID.")
+    
+    shortcode = match.group(1)
+    embed_url = f"https://www.instagram.com/p/{shortcode}/embed/captioned/"
+    print(f"Fetching Instagram embed: {embed_url}")
+
+    headers = {
+        "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
+        "Accept-Language": "en-US,en;q=0.9",
+        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/121.0.0.0 Safari/537.36"
+    }
+
+    try:
+        resp = c_requests.get(embed_url, headers=headers, impersonate="chrome120", timeout=15)
+    except TypeError:
+        resp = c_requests.get(embed_url, headers=headers, timeout=15)
+
+    resp.raise_for_status()
+
+    # Match caption inside embed HTML
+    caption_match = re.search(r'class="Caption"[^>]*>(.*?)</div>', resp.text, re.DOTALL)
+    if not caption_match:
+        # Fallback to broader content search if wrapper class shifted
+        caption_match = re.search(r'<div class="CaptionText"[^>]*>(.*?)</div>', resp.text, re.DOTALL)
+
+    if caption_match:
+        raw_html = caption_match.group(1)
+        # Clean HTML tags and line breaks
+        text = re.sub(r'<br\s*/?>', '\n', raw_html)
+        text = re.sub(r'<.*?>', '', text)
+        return text.strip()
+
+    # Alternative fallback: inspect raw page text for recipe content
+    cleaned = re.sub(r'<[^>]+>', ' ', resp.text)
+    return cleaned[:3000]
+
+def condense_with_gemini(recipe_url, raw_title, raw_yields, raw_time, raw_ingredients, raw_instructions, raw_raw_text=""):
     api_key = os.environ.get("GEMINI_API_KEY")
     if not api_key:
         print("ERROR: GEMINI_API_KEY environment variable is missing or empty!")
@@ -20,12 +62,16 @@ def condense_with_gemini(recipe_url, raw_title, raw_yields, raw_time, raw_ingred
 
     client = genai.Client(api_key=api_key)
 
-    prompt = f"""
-You are an expert chef's assistant formatting a recipe for an 800x480 e-paper kitchen display.
-Your job is to condense the recipe so it fits on a SINGLE screen with zero fluff.
-
+    if raw_raw_text:
+        # Freeform text prompt for Instagram captions
+        content_context = f"""
+Raw Text/Caption from Social Media Post:
+{raw_raw_text}
+"""
+    else:
+        # Structured scraper data for standard recipe blogs
+        content_context = f"""
 Recipe: {raw_title}
-Source URL / Site: {recipe_url}
 Yield: {raw_yields}
 Time: {raw_time}
 
@@ -34,10 +80,18 @@ Raw Ingredients:
 
 Raw Steps:
 {chr(10).join(raw_instructions)}
+"""
+
+    prompt = f"""
+You are an expert chef's assistant formatting a recipe for an 800x480 e-paper kitchen display.
+Your job is to condense the recipe so it fits on a SINGLE screen with zero fluff.
+
+Source URL / Site: {recipe_url}
+{content_context}
 
 Requirements:
-1. "title": Include the author or publication attribution in possessive form, followed by the specific recipe name (e.g. "RecipeTin's BBQ Pork Ribs", "Jamie Oliver's Kedgeree", "BBC Good Food's Drunken Noodles", "Tasty's Stout Chocolate Cake"). Keep it under 42 characters.
-2. "meta": Concise summary like "Serves 4 • 45 mins" or "Yield: 12 • 180°C • 35m".
+1. "title": Include the author or publication attribution in possessive form, followed by the specific recipe name (e.g. "RecipeTin's BBQ Pork Ribs", "Jamie Oliver's Kedgeree", "Instagram's Crispy Chili Oil Noodles"). Keep it under 42 characters.
+2. "meta": Concise summary like "Serves 4 • 45 mins" or "Yield: 12 • 180°C • 35m". If yield/time is not explicitly mentioned, estimate reasonably based on ingredient quantities.
 3. "ingredients": Exactly 8 to 12 essential items. Max 38 characters per line.
    - ALWAYS PRESERVE QUANTITIES: Keep exact measurements for aromatics, liquids, and spices.
    - METRIC CONVERSIONS: Convert weights to grams (g/kg), volumes to ml/litres, and oven temps to °C.
@@ -74,7 +128,7 @@ Output strictly valid JSON matching this schema:
                 )
                 data = json.loads(response.text)
                 
-                # Strip any accidental leading digits like "1. " or "2) "
+                # Strip accidental leading digits
                 if "steps" in data:
                     data["steps"] = [re.sub(r'^\d+[\.\)]\s*', '', s) for s in data["steps"]]
 
@@ -88,66 +142,88 @@ Output strictly valid JSON matching this schema:
                     continue
                 break
 
-    print("All AI attempts exhausted; falling back to raw scraper data.")
+    print("All AI attempts exhausted.")
     return None
 
 def parse_and_save(recipe_url):
-    print(f"Fetching recipe from: {recipe_url}")
+    print(f"Processing recipe from: {recipe_url}")
+    parsed = urlparse(recipe_url)
     
-    headers = {
-        "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8",
-        "Accept-Language": "en-US,en;q=0.9",
-        "Sec-Ch-Ua": '"Not A(Brand";v="99", "Google Chrome";v="121", "Chromium";v="121"',
-        "Sec-Ch-Ua-Mobile": "?0",
-        "Sec-Ch-Ua-Platform": '"Windows"',
-        "Sec-Fetch-Dest": "document",
-        "Sec-Fetch-Mode": "navigate",
-        "Sec-Fetch-Site": "none",
-        "Sec-Fetch-User": "?1",
-        "Upgrade-Insecure-Requests": "1",
-        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/121.0.0.0 Safari/537.36"
-    }
+    # -------------------------------------------------------------
+    # Case A: Instagram Reels & Posts
+    # -------------------------------------------------------------
+    if "instagram.com" in parsed.netloc:
+        print("Detected Instagram URL. Extracting caption...")
+        try:
+            caption = extract_instagram_caption(recipe_url)
+            print(f"Extracted {len(caption)} characters of caption text.")
+        except Exception as e:
+            print(f"Failed to extract Instagram caption: {e}")
+            sys.exit(1)
 
-    try:
-        response = c_requests.get(recipe_url, headers=headers, impersonate="chrome120", timeout=15)
-    except TypeError:
-        response = c_requests.get(recipe_url, headers=headers, timeout=15)
-        
-    response.raise_for_status()
+        condensed = condense_with_gemini(
+            recipe_url,
+            raw_title="",
+            raw_yields="",
+            raw_time="",
+            raw_ingredients=[],
+            raw_instructions=[],
+            raw_raw_text=caption
+        )
+    # -------------------------------------------------------------
+    # Case B: Standard Web Scraper
+    # -------------------------------------------------------------
+    else:
+        headers = {
+            "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8",
+            "Accept-Language": "en-US,en;q=0.9",
+            "Sec-Ch-Ua": '"Not A(Brand";v="99", "Google Chrome";v="121", "Chromium";v="121"',
+            "Sec-Ch-Ua-Mobile": "?0",
+            "Sec-Ch-Ua-Platform": '"Windows"',
+            "Sec-Fetch-Dest": "document",
+            "Sec-Fetch-Mode": "navigate",
+            "Sec-Fetch-Site": "none",
+            "Sec-Fetch-User": "?1",
+            "Upgrade-Insecure-Requests": "1",
+            "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/121.0.0.0 Safari/537.36"
+        }
 
-    try:
-        scraper = scrape_html(html=response.text, org_url=recipe_url)
-    except Exception:
-        scraper = scrape_me(recipe_url)
+        try:
+            response = c_requests.get(recipe_url, headers=headers, impersonate="chrome120", timeout=15)
+        except TypeError:
+            response = c_requests.get(recipe_url, headers=headers, timeout=15)
+            
+        response.raise_for_status()
 
-    raw_title = scraper.title()
-    try:
-        raw_yields = scraper.yields()
-    except Exception:
-        raw_yields = "N/A"
+        try:
+            scraper = scrape_html(html=response.text, org_url=recipe_url)
+        except Exception:
+            scraper = scrape_me(recipe_url)
 
-    try:
-        raw_time = f"{scraper.total_time()} mins"
-    except Exception:
-        raw_time = "N/A"
+        raw_title = scraper.title()
+        try:
+            raw_yields = scraper.yields()
+        except Exception:
+            raw_yields = "N/A"
 
-    raw_ingredients = scraper.ingredients()
-    try:
-        raw_instructions = scraper.instructions_list()
-    except Exception:
-        raw_instructions = [scraper.instructions()]
+        try:
+            raw_time = f"{scraper.total_time()} mins"
+        except Exception:
+            raw_time = "N/A"
 
-    condensed = condense_with_gemini(
-        recipe_url, raw_title, raw_yields, raw_time, raw_ingredients, raw_instructions
-    )
+        raw_ingredients = scraper.ingredients()
+        try:
+            raw_instructions = scraper.instructions_list()
+        except Exception:
+            raw_instructions = [scraper.instructions()]
+
+        condensed = condense_with_gemini(
+            recipe_url, raw_title, raw_yields, raw_time, raw_ingredients, raw_instructions
+        )
 
     if not condensed:
-        condensed = {
-            "title": raw_title[:40],
-            "meta": f"{raw_yields} • {raw_time}",
-            "ingredients": raw_ingredients[:12],
-            "steps": raw_instructions[:6]
-        }
+        print("ERROR: Failed to generate condensed recipe data.")
+        sys.exit(1)
 
     with open("current_recipe.json", "w") as f:
         json.dump(condensed, f, indent=2)
