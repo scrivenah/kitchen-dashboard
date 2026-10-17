@@ -65,8 +65,8 @@ Requirements:
    - If an ingredient is split across parts (e.g. sauce vs meat), indicate briefly: "Sauce: 30ml fish sauce" or "Pork: 15ml fish sauce".
    - Bundle minor produce/garnishes into single lines (e.g. "Herbs, lettuce & sprouts").
 4. "steps": Exactly 5 to 6 concise action steps WITHOUT leading numbers.
-   - CRITICAL LENGTH RULE: Each step must be STRICTLY under 15 words (max 90 characters). Never write long sentences that get cut off.
-   - Keep essential action verbs, pan temperatures, and cook times (e.g. "Fry patties 2-3 mins per side").
+   - Each step should be around 18–25 words (up to 130 characters).
+   - Write natural, fluid sentences that explain the technique clearly without cutting off critical instructions.
 
 Output strictly valid JSON matching this schema:
 {{
