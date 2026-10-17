@@ -27,7 +27,7 @@ jobs:
 
       - name: Install Dependencies
         run: |
-          pip install recipe-scrapers pillow requests google-genai
+          pip install recipe-scrapers google-genai pillow requests curl_cffi
 
       - name: Scrape & Render Recipe
         env:
