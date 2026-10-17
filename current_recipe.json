@@ -1,19 +1,20 @@
 {
-  "title": "RecipeTin's Garlic Bread",
-  "meta": "Serves 6 \u2022 ~260 kcal \u2022 25 mins",
+  "title": "RecipeTin's Chinese Beef Stir Fry",
+  "meta": "Serves 3 \u2022 ~350 kcal \u2022 23 mins",
   "ingredients": [
-    "1 French baguette (60cm long)",
-    "125g unsalted butter, softened",
-    "2 tsp fresh garlic, finely minced",
-    "1/2 tsp kosher salt",
-    "2 tsp finely chopped parsley"
+    "Beef & Velveting: 200g flank/rump steak, 1/2 tsp baking soda",
+    "Sauce: 2 tbsp soy sauce, 1 tbsp oyster sauce, 2 tbsp cooking wine, 1 tsp sugar, 1/2 tsp sesame oil, 1 pinch white pepper",
+    "Stir-fry base: 3 tsp cornstarch, 1/2 cup water, 1.5 tbsp peanut oil",
+    "Aromatics: 1 clove garlic minced, 1/2 small onion sliced",
+    "Veggies: 1/2 red capsicum, 1 small carrot sliced, 2 bok choy",
+    "Garnish: 2 green onions chopped, sesame seeds"
   ],
   "steps": [
-    "Preheat your oven to 200\u00b0C before beginning.",
-    "Cut the baguette in half horizontally, then slice almost completely through at 2cm intervals.",
-    "Thoroughly mix the softened butter, minced garlic, kosher salt, and chopped parsley together in a bowl.",
-    "Generously smear the garlic butter mixture over the cut sides, top, and outer edges of the bread.",
-    "Wrap the prepared bread tightly in aluminum foil and bake for 15 minutes until crispy.",
-    "Carefully unwrap the foil from around the hot bread and serve immediately while warm."
+    "Coat beef with baking soda, rest for 20 minutes, rinse well under tap water, and pat dry.",
+    "Mix sauce ingredients, reserve 1.5 tablespoons to coat beef, and whisk cornstarch and water into remainder.",
+    "Heat peanut oil in a wok over high heat, add onion and garlic, and cook for 10 seconds.",
+    "Add beef and stir-fry until color changes from red to light brown but center remains slightly pink.",
+    "Toss in capsicum, carrots, bok choy stems, and white onion, cooking for 1 minute before pouring sauce.",
+    "Add bok choy leaves and green onions, tossing 1 minute until wilted and glossy, then serve with rice."
   ]
 }
