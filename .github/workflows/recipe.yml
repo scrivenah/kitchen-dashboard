@@ -44,12 +44,12 @@ jobs:
           git add current_recipe.json recipe.png
           git diff --quiet && git diff --staged --quiet || (git commit -m "Update recipe card [skip ci]" && git push)
 
-      - name: Send Completion Notification
+      - name: Send Recipe Card Notification
         if: success()
         run: |
           curl \
             -H "Title: Recipe Ready 🍳" \
             -H "Priority: high" \
             -H "Tags: white_check_mark,shallow_pan_of_food" \
-            -d "Recipe card generated and pushed to repo!" \
+            -T recipe.png \
             https://ntfy.sh/scriv-kitchen-recipe
