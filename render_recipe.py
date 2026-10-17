@@ -55,7 +55,7 @@ draw.text((36, 75), "Ingredients", font=font_card_head, fill=COLOR_TEXT_DARK)
 y_ing = 106
 for ing in recipe.get("ingredients", []):
     draw.ellipse([26, y_ing + 4, 32, y_ing + 10], outline=COLOR_ACCENT, width=2)
-    clean_ing = ing[:38] + "..." if len(ing) > 40 else ing
+    clean_ing = ing[:42] + "..." if len(ing) > 44 else ing
     draw.text((42, y_ing), clean_ing, font=font_body, fill=COLOR_TEXT_DARK)
     y_ing += 24
 
@@ -65,27 +65,33 @@ draw.rounded_rectangle([(366, 70), (490, 92)], radius=11, fill=COLOR_PILL_BG, ou
 draw.text((380, 75), "Quick Method", font=font_card_head, fill=COLOR_TEXT_DARK)
 
 y_step = 106
+MAX_LINE_CHARS = 58
+
 for idx, step in enumerate(recipe.get("steps", []), 1):
     draw.rounded_rectangle([(366, y_step), (388, y_step + 20)], radius=6, fill=COLOR_PILL_BG)
     draw.text((374, y_step + 3), str(idx), font=font_num, fill=COLOR_ACCENT)
 
     words = step.split()
-    line1, line2 = "", ""
-    for w in words:
-        if len(line1 + " " + w) < 46:
-            line1 = (line1 + " " + w).strip()
-        elif len(line2 + " " + w) < 46:
-            line2 = (line2 + " " + w).strip()
-        else:
-            line2 = (line2 + "...").strip()
-            break
+    lines = []
+    current_line = ""
 
-    draw.text((400, y_step + 2), line1, font=font_body, fill=COLOR_TEXT_DARK)
-    if line2:
-        draw.text((400, y_step + 18), line2, font=font_body, fill=COLOR_TEXT_DARK)
-        y_step += 54
-    else:
-        y_step += 40
+    for w in words:
+        test_line = (current_line + " " + w).strip()
+        if len(test_line) <= MAX_LINE_CHARS:
+            current_line = test_line
+        else:
+            lines.append(current_line)
+            current_line = w
+            if len(lines) == 2:  # allow up to 3 lines total (lines 0, 1, and overflow line 2)
+                break
+    if current_line and len(lines) < 3:
+        lines.append(current_line)
+
+    for i, line in enumerate(lines):
+        draw.text((400, y_step + 2 + (i * 17)), line, font=font_body, fill=COLOR_TEXT_DARK)
+
+    # Dynamic vertical gap based on whether step was 1, 2, or 3 lines
+    y_step += 36 + (len(lines) * 17)
 
 img.save("recipe.png", "PNG")
 print("Saved recipe.png successfully!")
