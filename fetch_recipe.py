@@ -66,9 +66,10 @@ Requirements:
    - SPICE & GARNISH BUNDLING: Do not list 5 individual spices on separate lines. Combine into one line (e.g., "15g BBQ dry rub" or "Herbs, chili & scallions").
    - OMIT TRIVIAL BASICS: Omit minor garnishes or standard water/salt/pepper if the list exceeds 12 items.
 4. "steps": Exactly 5 to 6 concise action steps WITHOUT leading step numbers.
-   - HARDWARE & BAKING CONVERSIONS: Convert cake pans, skillet, and baking dish dimensions from inches to cm (e.g., 8-inch -> 20cm tin, 9x13-inch -> 23x33cm dish, 10-inch -> 25cm skillet).
-   - LENGTH & FLOW: Keep each step between 15 and 25 words (max 140 characters). Write natural, imperative sentences (e.g. "Whisk eggs and sugar until pale; gently fold in sifted cocoa and flour.").
-   - CRITICAL PRECISION: Always retain vital pan temperatures, internal meat temps (°C), stovetop heat levels (low/med/high), and cooking times.
+   - HARD CONSTRAINTS: Each step MUST be a complete, punchy sentence of 12 to 18 words (max 95 characters). 
+   - Never write run-on sentences. Complete every thought cleanly (no dangling conjunctions).
+   - HARDWARE CONVERSIONS: Convert inches to cm (e.g. 8-inch -> 20cm).
+   - Keep vital cooking temps (°C) and bake times.
 
 Output strictly valid JSON matching this schema:
 {{
