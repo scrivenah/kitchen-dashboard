@@ -9,7 +9,7 @@ try:
 except ImportError:
     import requests as c_requests
 
-from recipe_scrapers import scrape_me
+from recipe_scrapers import scrape_me, scrape_html
 from google import genai
 
 def condense_with_gemini(recipe_url, raw_title, raw_yields, raw_time, raw_ingredients, raw_instructions):
@@ -116,8 +116,8 @@ def parse_and_save(recipe_url):
     response.raise_for_status()
 
     try:
-        scraper = scrape_me(recipe_url, html_str=response.text)
-    except TypeError:
+        scraper = scrape_html(html=response.text, org_url=recipe_url)
+    except Exception:
         scraper = scrape_me(recipe_url)
 
     raw_title = scraper.title()
