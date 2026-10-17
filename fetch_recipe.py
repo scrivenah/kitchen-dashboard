@@ -1,41 +1,13 @@
 import os
+import sys
 import json
-import re
 import time
+import re
 import requests
-from recipe_scrapers import scrape_html
+from recipe_scrapers import scrape_me
 from google import genai
 
-def convert_units_to_metric(text):
-    # Fahrenheit to Celsius
-    def f_to_c(m):
-        f = float(m.group(1))
-        c = round(((f - 32) * 5 / 9) / 5) * 5
-        return f"{c}°C"
-    text = re.sub(r'(\d+(?:\.\d+)?)\s*(?:°\s*|degrees?\s*)?[Ff](?:ahrenheit)?\b', f_to_c, text)
-
-    # Pounds to grams / kg
-    def lbs_to_metric(m):
-        val = float(m.group(1))
-        grams = val * 453.592
-        return f"{round(grams / 1000, 1)} kg" if grams >= 1000 else f"{round(grams)} g"
-    text = re.sub(r'(\d+(?:\.\d+)?)\s*(?:lbs?|pounds?)\b', lbs_to_metric, text, flags=re.IGNORECASE)
-
-    # Ounces to grams
-    def oz_to_g(m):
-        val = float(m.group(1))
-        return f"{round(val * 28.35)} g"
-    text = re.sub(r'(\d+(?:\.\d+)?)\s*(?:oz|ounces?)\b', oz_to_g, text, flags=re.IGNORECASE)
-
-    # Sticks of butter
-    def sticks_to_g(m):
-        val = float(m.group(1))
-        return f"{round(val * 113)} g butter"
-    text = re.sub(r'(\d+(?:\.\d+)?)\s*sticks?\s+of\s+butter\b', sticks_to_g, text, flags=re.IGNORECASE)
-
-    return text
-
-condensed = condense_with_gemini(recipe_url, scraper.title(), scraper.yields(), scraper.total_time(), scraper.ingredients(), scraper.instructions_list())
+def condense_with_gemini(recipe_url, raw_title, raw_yields, raw_time, raw_ingredients, raw_instructions):
     api_key = os.environ.get("GEMINI_API_KEY")
     if not api_key:
         print("ERROR: GEMINI_API_KEY environment variable is missing or empty!")
@@ -43,7 +15,6 @@ condensed = condense_with_gemini(recipe_url, scraper.title(), scraper.yields(), 
 
     client = genai.Client(api_key=api_key)
 
-    # Pass the URL or domain into condense_with_gemini so Gemini knows the source
     prompt = f"""
 You are an expert chef's assistant formatting a recipe for an 800x480 e-paper kitchen display.
 Your job is to condense the recipe so it fits on a SINGLE screen with zero fluff.
@@ -61,15 +32,17 @@ Raw Steps:
 
 Requirements:
 1. "title": Include the author or publication attribution in possessive form, followed by the specific recipe name (e.g. "RecipeTin's BBQ Pork Ribs", "Jamie Oliver's Kedgeree", "BBC Good Food's Drunken Noodles", "Tasty's Stout Chocolate Cake"). Keep it under 42 characters.
-2. "meta": Concise summary like "Serves 2 • 20 mins" or "Yield: 12 • 180°C • 35m".
+2. "meta": Concise summary like "Serves 4 • 45 mins" or "Yield: 12 • 180°C • 35m".
 3. "ingredients": Exactly 8 to 12 essential items. Max 38 characters per line.
    - ALWAYS PRESERVE QUANTITIES: Keep exact measurements for aromatics, liquids, and spices.
    - METRIC CONVERSIONS: Convert weights to grams (g/kg), volumes to ml/litres, and oven temps to °C.
-   - COMPONENT LABELS: If a recipe has separate parts (e.g., sauce vs noodles), prefix concisely: "Sauce: 3.5 tbsp soy".
+   - COMPONENT LABELS: If a recipe has separate parts (e.g. sauce vs meat), prefix concisely: "Pork: 500g mince", "Sauce: 60ml soy".
+   - SPICE & GARNISH BUNDLING: If bundling minor items into one line, keep measurements (e.g. "1 onion, 2 cloves garlic, 3cm ginger" or "2 tbsp curry powder, 1 tsp mustard seeds").
+   - OMIT TRIVIAL BASICS: Omit minor unmeasured water/salt/pepper if the list exceeds 12 items.
 4. "steps": Exactly 5 to 6 concise action steps WITHOUT leading step numbers.
-   - LENGTH: Write complete, natural imperative sentences of 14 to 22 words (max 120 characters).
-   - HARDWARE CONVERSIONS: Convert inches to cm (e.g. 8-inch -> 20cm).
-   - Retain vital cooking temperatures (°C), pan sizes, and cooking times.
+   - HARDWARE CONVERSIONS: Convert cake pans, skillets, and dish sizes from inches to cm (e.g. 8-inch -> 20cm tin, 9x13-inch -> 23x33cm dish).
+   - LENGTH & FLOW: Write complete, natural imperative sentences of 14 to 22 words (max 120 characters).
+   - CRITICAL PRECISION: Retain vital pan temperatures, heat settings (low/med/high), and cooking/baking times.
 
 Output strictly valid JSON matching this schema:
 {{
@@ -110,39 +83,62 @@ Output strictly valid JSON matching this schema:
                     continue
                 break
 
-    print("All AI attempts exhausted; falling back to basic raw scraper.")
+    print("All AI attempts exhausted; falling back to raw scraper data.")
     return None
 
-def parse_and_save(url):
+def parse_and_save(recipe_url):
+    print(f"Fetching recipe from: {recipe_url}")
     headers = {
-        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'
+        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
     }
-    response = requests.get(url, headers=headers, timeout=15)
+
+    response = requests.get(recipe_url, headers=headers, timeout=15)
     response.raise_for_status()
 
-    scraper = scrape_html(response.text, org_url=url)
+    scraper = scrape_me(recipe_url, html=response.text)
 
     raw_title = scraper.title()
-    raw_yields = scraper.yields()
-    raw_time = scraper.total_time()
-    raw_ingredients = scraper.ingredients()
-    raw_instructions = scraper.instructions_list()
+    try:
+        raw_yields = scraper.yields()
+    except Exception:
+        raw_yields = "N/A"
 
-    condensed = condense_with_gemini(raw_title, raw_yields, raw_time, raw_ingredients, raw_instructions)
+    try:
+        raw_time = f"{scraper.total_time()} mins"
+    except Exception:
+        raw_time = "N/A"
+
+    raw_ingredients = scraper.ingredients()
+    try:
+        raw_instructions = scraper.instructions_list()
+    except Exception:
+        raw_instructions = [scraper.instructions()]
+
+    condensed = condense_with_gemini(
+        recipe_url, raw_title, raw_yields, raw_time, raw_ingredients, raw_instructions
+    )
 
     if not condensed:
-        print("Falling back to basic raw scraper fallback...")
-        clean_ingredients = [convert_units_to_metric(i.strip()) for i in raw_ingredients if i.strip()]
         condensed = {
-            "title": raw_title[:35],
-            "meta": f"Yield: {raw_yields} • {raw_time} mins" if raw_time else f"Yield: {raw_yields}",
-            "ingredients": clean_ingredients[:12],
-            "steps": [convert_units_to_metric(s.split(". ")[0].strip()) for s in raw_instructions[:6]]
+            "title": raw_title[:40],
+            "meta": f"{raw_yields} • {raw_time}",
+            "ingredients": raw_ingredients[:12],
+            "steps": raw_instructions[:6]
         }
 
     with open("current_recipe.json", "w") as f:
         json.dump(condensed, f, indent=2)
 
+    print("Saved recipe payload to current_recipe.json successfully.")
+
 if __name__ == "__main__":
-    recipe_url = os.environ.get("RECIPE_URL", "https://www.bbcgoodfood.com/recipes/best-ever-chocolate-brownies-recipe")
-    parse_and_save(recipe_url)
+    if len(sys.argv) > 1:
+        url = sys.argv[1]
+    else:
+        url = os.environ.get("RECIPE_URL")
+
+    if not url:
+        print("ERROR: No URL provided via argument or RECIPE_URL environment variable.")
+        sys.exit(1)
+
+    parse_and_save(url)
