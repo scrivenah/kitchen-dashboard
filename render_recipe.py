@@ -54,13 +54,10 @@ draw.rounded_rectangle([(24, 70), (130, 92)], radius=11, fill=COLOR_PILL_BG, out
 draw.text((36, 75), "Ingredients", font=font_card_head, fill=COLOR_TEXT_DARK)
 
 y_ing = 104
-MAX_ING_CHARS = 40
+MAX_ING_CHARS = 40  # Characters before wrapping to the next line
 
-for ing in recipe.get("ingredients", [])[:12]:
-    # Draw bullet point
-    draw.ellipse([26, y_ing + 4, 32, y_ing + 10], outline=COLOR_ACCENT, width=2)
-    
-    # Word wrap long ingredients across 1 or 2 lines
+for ing in recipe.get("ingredients", []):
+    # Word wrap the ingredient text across multiple lines if needed
     words = ing.split()
     lines = []
     curr = ""
@@ -73,10 +70,15 @@ for ing in recipe.get("ingredients", [])[:12]:
     if curr:
         lines.append(curr)
 
-    for i, line in enumerate(lines[:2]):
+    # Bullet circle aligned with the first line of text
+    draw.ellipse([26, y_ing + 4, 32, y_ing + 10], outline=COLOR_ACCENT, width=2)
+
+    # Render each wrapped line (up to 3 lines per ingredient item)
+    for i, line in enumerate(lines[:3]):
         draw.text((42, y_ing + (i * 15)), line, font=font_body, fill=COLOR_TEXT_DARK)
-        
-    y_ing += 18 + (len(lines[:2]) * 13)
+
+    # Space dynamically based on how many lines this bullet point took up
+    y_ing += 15 + (len(lines[:3]) * 15)
 
 # Right Column: Quick Method Card
 draw.rounded_rectangle([(354, 60), (WIDTH - 12, 468)], radius=22, fill=COLOR_CARD, outline=COLOR_BORDER, width=1)
