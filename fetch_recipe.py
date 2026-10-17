@@ -119,7 +119,7 @@ def parse_and_save(recipe_url):
 
     try:
     scraper = scrape_me(recipe_url, html_str=response.text)
-except TypeError:
+    except TypeError:
     scraper = scrape_me(recipe_url)
 
     raw_title = scraper.title()
