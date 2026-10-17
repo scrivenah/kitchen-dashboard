@@ -92,11 +92,11 @@ Source URL / Site: {recipe_url}
 Requirements:
 1. "title": Include the author or publication attribution in possessive form, followed by the specific recipe name (e.g. "RecipeTin's BBQ Pork Ribs", "Jamie Oliver's Kedgeree", "Instagram's Crispy Chili Oil Noodles"). Keep it under 42 characters.
 2. "meta": Concise summary like "Serves 4 • 45 mins" or "Yield: 12 • 180°C • 35m". If yield/time is not explicitly mentioned, estimate reasonably based on ingredient quantities.
-3. "ingredients": Exactly 8 to 12 clean, distinct items. Max 40 characters per item.
-   - ONE ITEM PER LINE: Do NOT bundle multiple measured ingredients into one line (e.g. do NOT write "2 tbsp soy, 1 tbsp oyster, 1 tsp sesame"). Give each ingredient its own line.
-   - COMPONENT HEADINGS / PREFIXES: You may use short prefixes (e.g. "Beef: 500g flank", "Marinade: 1 tbsp soy", "Sauce: 2 tbsp oyster").
+3. "ingredients": Exactly 6 to 9 comprehensive bullet items.
+   - GROUP LOGICAL COMPONENTS: Whenever there is a marinade, sauce, batter, or spice mix, combine those items onto ONE line with their exact measurements (e.g. "Marinade: 1 tbsp oyster, 2 tsp dark soy, 1 tsp cornstarch" or "Sauce: 2 tbsp soy, 2 tbsp oyster, 1 tbsp Shaoxing").
+   - DO NOT REPEAT LABELS: Never split the same category across multiple separate bullet points (e.g. do not have three separate lines starting with "Beef Marinade:").
    - METRIC CONVERSIONS: Convert weights to grams (g/kg), volumes to ml/tbsp/tsp, and oven temps to °C.
-   - If a recipe has 15+ items, omit minor garnishes or standard pantry staples (water, pinch of salt, plain black pepper) to fit within 11-12 distinct lines.
+   - RETAIN QUANTITIES: Always keep the exact measurements for every item inside the group.
 4. "steps": Exactly 5 to 6 concise action steps WITHOUT leading step numbers.
    - HARDWARE CONVERSIONS: Convert cake pans, skillets, and dish sizes from inches to cm (e.g. 8-inch -> 20cm tin, 9x13-inch -> 23x33cm dish).
    - LENGTH & FLOW: Write complete, natural imperative sentences of 14 to 22 words (max 120 characters).
