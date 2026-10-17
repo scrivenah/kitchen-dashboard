@@ -65,7 +65,7 @@ draw.rounded_rectangle([(366, 70), (490, 92)], radius=11, fill=COLOR_PILL_BG, ou
 draw.text((380, 75), "Quick Method", font=font_card_head, fill=COLOR_TEXT_DARK)
 
 y_step = 104
-MAX_CHARS_PER_LINE = 52
+MAX_CHARS_PER_LINE = 66
 
 for idx, step in enumerate(recipe.get("steps", [])[:6], 1):
     draw.rounded_rectangle([(366, y_step), (388, y_step + 19)], radius=5, fill=COLOR_PILL_BG)
