@@ -59,13 +59,14 @@ Raw Steps:
 
 Requirements:
 1. "title": Shortened title under 30 characters.
-2. "meta": Concise summary like "Serves 6 • 150 mins".
-3. "ingredients": List of essential ingredients with metric units (grams, ml, °C). Max 12 items.
-   - CRITICAL: Keep each ingredient line under 30 characters so text does not truncate.
-   - For complex rubs/spices, summarize simply (e.g. "15g BBQ spice rub" instead of listing each spice).
-4. "steps": Exactly 5 to 6 concise action steps WITHOUT leading step numbers.
-   - Write clear, grammatically natural instructions.
-   - Keep critical temperatures (°C), pan sizes, and baking times.
+2. "meta": Concise summary like "Serves 2 • 30 mins".
+3. "ingredients": Exactly 8 to 12 essential items. Max 30 characters per line.
+   - Convert all units to metric (grams, ml, °C).
+   - If an ingredient is split across parts (e.g. sauce vs meat), indicate briefly: "Sauce: 30ml fish sauce" or "Pork: 15ml fish sauce".
+   - Bundle minor produce/garnishes into single lines (e.g. "Herbs, lettuce & sprouts").
+4. "steps": Exactly 5 to 6 concise action steps WITHOUT leading numbers.
+   - CRITICAL LENGTH RULE: Each step must be STRICTLY under 15 words (max 90 characters). Never write long sentences that get cut off.
+   - Keep essential action verbs, pan temperatures, and cook times (e.g. "Fry patties 2-3 mins per side").
 
 Output strictly valid JSON matching this schema:
 {{
