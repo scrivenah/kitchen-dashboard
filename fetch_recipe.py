@@ -61,7 +61,7 @@ Requirements:
 1. "title": Shortened title under 35 characters.
 2. "meta": Concise summary like "Serves 16 • 60 mins".
 3. "ingredients": List of essential ingredients with metric units (grams, ml, °C). Max 12 items.
-4. "steps": Exactly 5 to 6 concise, numbered action steps. Each step MUST be under 20 words, but keep vital temperatures, pan sizes, and baking times. Fix any scrambled words or web ads.
+4. "steps": Exactly 5 to 6 concise action steps WITHOUT leading step numbers. Each step MUST be under 20 words, but keep vital temperatures, pan sizes, and baking times. Fix any scrambled words or web ads.
 
 Output strictly valid JSON matching this schema:
 {{
@@ -73,9 +73,8 @@ Output strictly valid JSON matching this schema:
 """
 
     candidate_models = [
-        "gemini-2.5-flash-lite",
+        "gemini-3.5-flash-lite",
         "gemini-3.8-flash",
-        "gemini-flash-latest"
     ]
 
     for model_name in candidate_models:
@@ -87,8 +86,14 @@ Output strictly valid JSON matching this schema:
                     contents=prompt,
                     config={"response_mime_type": "application/json"}
                 )
+                data = json.loads(response.text)
+                
+                # Strip any accidental leading digits like "1. " or "2) "
+                if "steps" in data:
+                    data["steps"] = [re.sub(r'^\d+[\.\)]\s*', '', s) for s in data["steps"]]
+
                 print(f"SUCCESS: Gemini ({model_name}) condensed the recipe successfully!")
-                return json.loads(response.text)
+                return data
             except Exception as e:
                 err_msg = str(e)
                 print(f"Warning: {model_name} failed with: {err_msg}")
