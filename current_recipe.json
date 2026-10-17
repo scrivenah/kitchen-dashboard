@@ -1,21 +1,25 @@
 {
   "title": "Lulu's Beef & Broccoli Fried Rice",
-  "meta": "Serves 4 \u2022 30 mins \u2022 585 kcal",
+  "meta": "Serves 4 \u2022 585 kcal \u2022 25 mins",
   "ingredients": [
     "Beef: 500g lean steak, sliced",
-    "Beef Marinade: 1 tbsp oyster, 2 tsp soy, 1 tsp baking soda, 2 tsp cornstarch",
-    "Sauce: 2 tbsp oyster, 3 tbsp soy, 1 tbsp Shaoxing wine, 1 tbsp sugar",
-    "Sauce 2: 1 tsp sesame oil, 0.5 tsp 5-spice, 0.5 tsp pepper, 2 tbsp water",
-    "Base: 0.5 tbsp oil, 4 cups cooked jasmine rice, 4 cups broccoli florets",
-    "Aromatics: 5 cloves garlic, 2 tsp ginger, 3 spring onions",
-    "Toppings: 4 fried eggs, chilli oil, sesame seeds"
+    "Beef Marinade: 1 tbsp oyster sauce",
+    "Beef Marinade: 2 tsp dark soy sauce",
+    "Beef Marinade: 1 tsp cornstarch",
+    "Sauce: 2 tbsp oyster sauce",
+    "Sauce: 2 tbsp soy sauce",
+    "Sauce: 1 tbsp Shaoxing wine",
+    "Base: 4 cups cooked jasmine rice",
+    "Base: 4 cups small broccoli florets",
+    "Aromatics: 5 minced garlic cloves",
+    "Garnish: 4 fried eggs & chilli oil"
   ],
   "steps": [
-    "Combine sliced beef with oyster sauce, dark soy sauce, baking soda, cornstarch, and white pepper, then rest for fifteen minutes.",
+    "Combine sliced beef with oyster sauce, dark soy sauce, cornstarch, and set aside for fifteen minutes.",
     "Pour boiling water over the broccoli florets, let sit for two minutes, and drain thoroughly.",
-    "Heat oil in a large pan over high heat, stir-fry the beef for two to three minutes until browned, then set aside.",
-    "Stir-fry garlic, ginger, and spring onion whites in oil for one minute, then add rice and cook until hot and toasted.",
-    "Add broccoli, sauce, and cooked beef back to the pan, toss until heated through, and stir in spring onion greens.",
+    "Heat oil in a large wok over high heat, add beef in a single layer, and stir fry until browned.",
+    "Stir fry garlic, ginger, and spring onion whites for one minute, then add rice and broccoli.",
+    "Pour in the mixed sauce, toss until hot, return the beef to the pan, and heat through.",
     "Serve hot topped with a fried egg, a drizzle of chilli oil, and a sprinkle of sesame seeds."
   ]
 }
