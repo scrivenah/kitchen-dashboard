@@ -91,7 +91,9 @@ Source URL / Site: {recipe_url}
 
 Requirements:
 1. "title": Include the author or publication attribution in possessive form, followed by the specific recipe name (e.g. "RecipeTin's BBQ Pork Ribs", "Jamie Oliver's Kedgeree", "Instagram's Crispy Chili Oil Noodles"). Keep it under 42 characters.
-2. "meta": Concise summary like "Serves 4 • 45 mins" or "Yield: 12 • 180°C • 35m". If yield/time is not explicitly mentioned, estimate reasonably based on ingredient quantities.
+2. "meta": Concise summary like "Serves 4 • 25 mins" or "Serves 4 • 585 kcal • 25 mins".
+   - CALORIES / NUTRITION: If calorie counts or energy per serving are explicitly present in the source text or metadata, include them (e.g. "585 kcal" or "2450 kJ").
+   - FALLBACK ESTIMATION: If no calorie info is provided anywhere in the source, estimate the calories per serving based on the total ingredients and yield, prefixing it with a tilde (e.g. "~520 kcal"). Keep this brief so the entire meta string stays under 32 characters.
 3. "ingredients": Exactly 6 to 9 comprehensive bullet items.
    - GROUP LOGICAL COMPONENTS: Whenever there is a marinade, sauce, batter, or spice mix, combine those items onto ONE line with their exact measurements (e.g. "Marinade: 1 tbsp oyster, 2 tsp dark soy, 1 tsp cornstarch" or "Sauce: 2 tbsp soy, 2 tbsp oyster, 1 tbsp Shaoxing").
    - DO NOT REPEAT LABELS: Never split the same category across multiple separate bullet points (e.g. do not have three separate lines starting with "Beef Marinade:").
