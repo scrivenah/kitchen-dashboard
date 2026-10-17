@@ -54,11 +54,29 @@ draw.rounded_rectangle([(24, 70), (130, 92)], radius=11, fill=COLOR_PILL_BG, out
 draw.text((36, 75), "Ingredients", font=font_card_head, fill=COLOR_TEXT_DARK)
 
 y_ing = 104
-for ing in recipe.get("ingredients", []):
+MAX_ING_CHARS = 40
+
+for ing in recipe.get("ingredients", [])[:12]:
+    # Draw bullet point
     draw.ellipse([26, y_ing + 4, 32, y_ing + 10], outline=COLOR_ACCENT, width=2)
-    clean_ing = ing[:42] + "..." if len(ing) > 44 else ing
-    draw.text((42, y_ing), clean_ing, font=font_body, fill=COLOR_TEXT_DARK)
-    y_ing += 24
+    
+    # Word wrap long ingredients across 1 or 2 lines
+    words = ing.split()
+    lines = []
+    curr = ""
+    for w in words:
+        if len((curr + " " + w).strip()) <= MAX_ING_CHARS:
+            curr = (curr + " " + w).strip()
+        else:
+            lines.append(curr)
+            curr = w
+    if curr:
+        lines.append(curr)
+
+    for i, line in enumerate(lines[:2]):
+        draw.text((42, y_ing + (i * 15)), line, font=font_body, fill=COLOR_TEXT_DARK)
+        
+    y_ing += 18 + (len(lines[:2]) * 13)
 
 # Right Column: Quick Method Card
 draw.rounded_rectangle([(354, 60), (WIDTH - 12, 468)], radius=22, fill=COLOR_CARD, outline=COLOR_BORDER, width=1)
