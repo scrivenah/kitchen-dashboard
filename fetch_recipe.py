@@ -109,18 +109,16 @@ def parse_and_save(recipe_url):
     }
 
     try:
-        # impersonate="chrome120" bypasses Akamai & Cloudflare TLS fingerprinting
         response = c_requests.get(recipe_url, headers=headers, impersonate="chrome120", timeout=15)
     except TypeError:
-        # Fallback if standard requests is used
         response = c_requests.get(recipe_url, headers=headers, timeout=15)
         
     response.raise_for_status()
 
     try:
-    scraper = scrape_me(recipe_url, html_str=response.text)
+        scraper = scrape_me(recipe_url, html_str=response.text)
     except TypeError:
-    scraper = scrape_me(recipe_url)
+        scraper = scrape_me(recipe_url)
 
     raw_title = scraper.title()
     try:
