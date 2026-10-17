@@ -59,17 +59,16 @@ Raw Steps:
 
 Requirements:
 1. "title": Shortened title under 30 characters.
-2. "meta": Concise summary like "Serves 4 • 45 mins" or "Yield: 12 • 180°C • 35m".
-3. "ingredients": Exactly 8 to 12 essential items. Max 36 characters per line.
-   - METRIC CONVERSIONS: Convert all weights to grams (g/kg), volumes to ml/litres, and oven temps to °C.
-   - COMPONENT LABELS: If a recipe has distinct elements (e.g., sauce, marinade, dough, frosting), prefix lines briefly (e.g., "Pork: 500g mince", "Sauce: 60ml soy").
-   - SPICE & GARNISH BUNDLING: Do not list 5 individual spices on separate lines. Combine into one line (e.g., "15g BBQ dry rub" or "Herbs, chili & scallions").
-   - OMIT TRIVIAL BASICS: Omit minor garnishes or standard water/salt/pepper if the list exceeds 12 items.
+2. "meta": Concise summary like "Serves 6 • 50 mins" or "Yield: 12 • 180°C • 35m".
+3. "ingredients": Exactly 8 to 12 essential items. Max 38 characters per line.
+   - ALWAYS PRESERVE QUANTITIES: Never drop amounts for aromatics or spices. If bundling into one line, list measurements clearly (e.g., "1 onion, 2 cloves garlic, 3cm ginger" or "2 tbsp curry powder, 1 tsp mustard seeds").
+   - METRIC CONVERSIONS: Convert weights to grams (g/kg), volumes to ml/litres, and oven temps to °C.
+   - COMPONENT LABELS: If a recipe has separate parts (e.g., sauce vs meat), prefix concisely: "Pork: 500g mince", "Sauce: 60ml soy".
+   - MINOR GARNISHES: Only unmeasured garnishes (e.g., "Handful coriander & 1 chilli") may omit grams/ml.
 4. "steps": Exactly 5 to 6 concise action steps WITHOUT leading step numbers.
-   - HARD CONSTRAINTS: Each step MUST be a complete, punchy sentence of 12 to 18 words (max 95 characters). 
-   - Never write run-on sentences. Complete every thought cleanly (no dangling conjunctions).
+   - LENGTH: Write complete, natural imperative sentences of 14 to 22 words (max 120 characters).
    - HARDWARE CONVERSIONS: Convert inches to cm (e.g. 8-inch -> 20cm).
-   - Keep vital cooking temps (°C) and bake times.
+   - Retain vital cooking temperatures (°C), pan sizes, and cooking times.
 
 Output strictly valid JSON matching this schema:
 {{
