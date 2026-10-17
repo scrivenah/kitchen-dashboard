@@ -35,7 +35,7 @@ def convert_units_to_metric(text):
 
     return text
 
-def condense_with_gemini(raw_title, raw_yields, raw_time, raw_ingredients, raw_instructions):
+condensed = condense_with_gemini(recipe_url, scraper.title(), scraper.yields(), scraper.total_time(), scraper.ingredients(), scraper.instructions_list())
     api_key = os.environ.get("GEMINI_API_KEY")
     if not api_key:
         print("ERROR: GEMINI_API_KEY environment variable is missing or empty!")
@@ -43,11 +43,13 @@ def condense_with_gemini(raw_title, raw_yields, raw_time, raw_ingredients, raw_i
 
     client = genai.Client(api_key=api_key)
 
+    # Pass the URL or domain into condense_with_gemini so Gemini knows the source
     prompt = f"""
 You are an expert chef's assistant formatting a recipe for an 800x480 e-paper kitchen display.
 Your job is to condense the recipe so it fits on a SINGLE screen with zero fluff.
 
 Recipe: {raw_title}
+Source URL / Site: {recipe_url}
 Yield: {raw_yields}
 Time: {raw_time}
 
@@ -58,13 +60,12 @@ Raw Steps:
 {chr(10).join(raw_instructions)}
 
 Requirements:
-1. "title": Shortened title under 30 characters.
-2. "meta": Concise summary like "Serves 6 • 50 mins" or "Yield: 12 • 180°C • 35m".
+1. "title": Include the author or publication attribution in possessive form, followed by the specific recipe name (e.g. "RecipeTin's BBQ Pork Ribs", "Jamie Oliver's Kedgeree", "BBC Good Food's Drunken Noodles", "Tasty's Stout Chocolate Cake"). Keep it under 42 characters.
+2. "meta": Concise summary like "Serves 2 • 20 mins" or "Yield: 12 • 180°C • 35m".
 3. "ingredients": Exactly 8 to 12 essential items. Max 38 characters per line.
-   - ALWAYS PRESERVE QUANTITIES: Never drop amounts for aromatics or spices. If bundling into one line, list measurements clearly (e.g., "1 onion, 2 cloves garlic, 3cm ginger" or "2 tbsp curry powder, 1 tsp mustard seeds").
+   - ALWAYS PRESERVE QUANTITIES: Keep exact measurements for aromatics, liquids, and spices.
    - METRIC CONVERSIONS: Convert weights to grams (g/kg), volumes to ml/litres, and oven temps to °C.
-   - COMPONENT LABELS: If a recipe has separate parts (e.g., sauce vs meat), prefix concisely: "Pork: 500g mince", "Sauce: 60ml soy".
-   - MINOR GARNISHES: Only unmeasured garnishes (e.g., "Handful coriander & 1 chilli") may omit grams/ml.
+   - COMPONENT LABELS: If a recipe has separate parts (e.g., sauce vs noodles), prefix concisely: "Sauce: 3.5 tbsp soy".
 4. "steps": Exactly 5 to 6 concise action steps WITHOUT leading step numbers.
    - LENGTH: Write complete, natural imperative sentences of 14 to 22 words (max 120 characters).
    - HARDWARE CONVERSIONS: Convert inches to cm (e.g. 8-inch -> 20cm).
