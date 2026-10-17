@@ -59,14 +59,16 @@ Raw Steps:
 
 Requirements:
 1. "title": Shortened title under 30 characters.
-2. "meta": Concise summary like "Serves 2 • 30 mins".
-3. "ingredients": Exactly 8 to 12 essential items. Max 30 characters per line.
-   - Convert all units to metric (grams, ml, °C).
-   - If an ingredient is split across parts (e.g. sauce vs meat), indicate briefly: "Sauce: 30ml fish sauce" or "Pork: 15ml fish sauce".
-   - Bundle minor produce/garnishes into single lines (e.g. "Herbs, lettuce & sprouts").
-4. "steps": Exactly 5 to 6 concise action steps WITHOUT leading numbers.
-   - Each step should be around 18–25 words (up to 130 characters).
-   - Write natural, fluid sentences that explain the technique clearly without cutting off critical instructions.
+2. "meta": Concise summary like "Serves 4 • 45 mins" or "Yield: 12 • 180°C • 35m".
+3. "ingredients": Exactly 8 to 12 essential items. Max 36 characters per line.
+   - METRIC CONVERSIONS: Convert all weights to grams (g/kg), volumes to ml/litres, and oven temps to °C.
+   - COMPONENT LABELS: If a recipe has distinct elements (e.g., sauce, marinade, dough, frosting), prefix lines briefly (e.g., "Pork: 500g mince", "Sauce: 60ml soy").
+   - SPICE & GARNISH BUNDLING: Do not list 5 individual spices on separate lines. Combine into one line (e.g., "15g BBQ dry rub" or "Herbs, chili & scallions").
+   - OMIT TRIVIAL BASICS: Omit minor garnishes or standard water/salt/pepper if the list exceeds 12 items.
+4. "steps": Exactly 5 to 6 concise action steps WITHOUT leading step numbers.
+   - HARDWARE & BAKING CONVERSIONS: Convert cake pans, skillet, and baking dish dimensions from inches to cm (e.g., 8-inch -> 20cm tin, 9x13-inch -> 23x33cm dish, 10-inch -> 25cm skillet).
+   - LENGTH & FLOW: Keep each step between 15 and 25 words (max 140 characters). Write natural, imperative sentences (e.g. "Whisk eggs and sugar until pale; gently fold in sifted cocoa and flour.").
+   - CRITICAL PRECISION: Always retain vital pan temperatures, internal meat temps (°C), stovetop heat levels (low/med/high), and cooking times.
 
 Output strictly valid JSON matching this schema:
 {{
