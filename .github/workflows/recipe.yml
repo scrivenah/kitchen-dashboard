@@ -47,8 +47,11 @@ jobs:
       - name: Send Recipe Card Notification
         if: success()
         run: |
+          RECIPE_TITLE=$(jq -r '.title' current_recipe.json 2>/dev/null || echo "New recipe ready")
           curl \
             -H "Title: Recipe Ready 🍳" \
+            -H "Message: ${RECIPE_TITLE}" \
+            -H "Filename: recipe.png" \
             -H "Priority: high" \
             -H "Tags: white_check_mark,shallow_pan_of_food" \
             -T recipe.png \
