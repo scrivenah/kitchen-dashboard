@@ -31,7 +31,7 @@ def load_font(size, bold=True):
 
 font_title = load_font(18, bold=True)
 font_card_head = load_font(12, bold=True)
-font_body = load_font(12, bold=False)
+font_body = load_font(11.5, bold=False)  # Slightly tightened for recipe steps
 font_small = load_font(10, bold=False)
 font_num = load_font(11, bold=True)
 
@@ -52,7 +52,7 @@ draw.rounded_rectangle([(12, 60), (342, 468)], radius=22, fill=COLOR_CARD, outli
 draw.rounded_rectangle([(24, 70), (130, 92)], radius=11, fill=COLOR_PILL_BG, outline=COLOR_BORDER, width=1)
 draw.text((36, 75), "Ingredients", font=font_card_head, fill=COLOR_TEXT_DARK)
 
-y_ing = 106
+y_ing = 104
 for ing in recipe.get("ingredients", []):
     draw.ellipse([26, y_ing + 4, 32, y_ing + 10], outline=COLOR_ACCENT, width=2)
     clean_ing = ing[:42] + "..." if len(ing) > 44 else ing
@@ -64,34 +64,31 @@ draw.rounded_rectangle([(354, 60), (WIDTH - 12, 468)], radius=22, fill=COLOR_CAR
 draw.rounded_rectangle([(366, 70), (490, 92)], radius=11, fill=COLOR_PILL_BG, outline=COLOR_BORDER, width=1)
 draw.text((380, 75), "Quick Method", font=font_card_head, fill=COLOR_TEXT_DARK)
 
-y_step = 106
-MAX_LINE_CHARS = 58
+y_step = 104
+MAX_CHARS_PER_LINE = 52
 
-for idx, step in enumerate(recipe.get("steps", []), 1):
-    draw.rounded_rectangle([(366, y_step), (388, y_step + 20)], radius=6, fill=COLOR_PILL_BG)
+for idx, step in enumerate(recipe.get("steps", [])[:6], 1):
+    draw.rounded_rectangle([(366, y_step), (388, y_step + 19)], radius=5, fill=COLOR_PILL_BG)
     draw.text((374, y_step + 3), str(idx), font=font_num, fill=COLOR_ACCENT)
 
     words = step.split()
     lines = []
-    current_line = ""
-
+    curr = ""
     for w in words:
-        test_line = (current_line + " " + w).strip()
-        if len(test_line) <= MAX_LINE_CHARS:
-            current_line = test_line
+        if len((curr + " " + w).strip()) <= MAX_CHARS_PER_LINE:
+            curr = (curr + " " + w).strip()
         else:
-            lines.append(current_line)
-            current_line = w
-            if len(lines) == 2:  # allow up to 3 lines total (lines 0, 1, and overflow line 2)
-                break
-    if current_line and len(lines) < 3:
-        lines.append(current_line)
+            lines.append(curr)
+            curr = w
+    if curr:
+        lines.append(curr)
 
-    for i, line in enumerate(lines):
-        draw.text((400, y_step + 2 + (i * 17)), line, font=font_body, fill=COLOR_TEXT_DARK)
+    # Render each wrapped line
+    for i, line in enumerate(lines[:2]):  # Cap at 2 lines per step
+        draw.text((400, y_step + 2 + (i * 16)), line, font=font_body, fill=COLOR_TEXT_DARK)
 
-    # Dynamic vertical gap based on whether step was 1, 2, or 3 lines
-    y_step += 36 + (len(lines) * 17)
+    # Fixed step spacing to guarantee 5-6 steps always fit inside the card
+    y_step += 56 if len(lines) > 1 else 42
 
 img.save("recipe.png", "PNG")
 print("Saved recipe.png successfully!")
