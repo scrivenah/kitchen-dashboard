@@ -10,12 +10,11 @@ try:
 except ImportError:
     import requests as c_requests
 
-from recipe_scrapers import scrape_me, scrape_html
+from recipe_scrapers import scrape_html
 from google import genai
 
 def extract_instagram_caption(insta_url):
     """Extracts caption text from an Instagram post or reel via public embed."""
-    # Clean the URL and extract shortcode (supports /p/, /reel/, /reels/)
     match = re.search(r'instagram\.com/(?:p|reel|reels)/([^/?#&]+)', insta_url)
     if not match:
         raise ValueError("Could not parse Instagram post/reel ID.")
@@ -37,22 +36,18 @@ def extract_instagram_caption(insta_url):
 
     resp.raise_for_status()
 
-    # Match caption inside embed HTML
     caption_match = re.search(r'class="Caption"[^>]*>(.*?)</div>', resp.text, re.DOTALL)
     if not caption_match:
-        # Fallback to broader content search if wrapper class shifted
         caption_match = re.search(r'<div class="CaptionText"[^>]*>(.*?)</div>', resp.text, re.DOTALL)
 
     if caption_match:
         raw_html = caption_match.group(1)
-        # Clean HTML tags and line breaks
         text = re.sub(r'<br\s*/?>', '\n', raw_html)
         text = re.sub(r'<.*?>', '', text)
         return text.strip()
 
-    # Alternative fallback: inspect raw page text for recipe content
     cleaned = re.sub(r'<[^>]+>', ' ', resp.text)
-    return cleaned[:3000]
+    return cleaned[:4000]
 
 def condense_with_gemini(recipe_url, raw_title, raw_yields, raw_time, raw_ingredients, raw_instructions, raw_raw_text=""):
     api_key = os.environ.get("GEMINI_API_KEY")
@@ -63,13 +58,11 @@ def condense_with_gemini(recipe_url, raw_title, raw_yields, raw_time, raw_ingred
     client = genai.Client(api_key=api_key)
 
     if raw_raw_text:
-        # Freeform text prompt for Instagram captions
         content_context = f"""
-Raw Text/Caption from Social Media Post:
+Raw Text/Caption from Recipe or Social Post:
 {raw_raw_text}
 """
     else:
-        # Structured scraper data for standard recipe blogs
         content_context = f"""
 Recipe: {raw_title}
 Yield: {raw_yields}
@@ -90,19 +83,19 @@ Source URL / Site: {recipe_url}
 {content_context}
 
 Requirements:
-1. "title": Include the author or publication attribution in possessive form, followed by the specific recipe name (e.g. "RecipeTin's BBQ Pork Ribs", "Jamie Oliver's Kedgeree", "Instagram's Crispy Chili Oil Noodles"). Keep it under 42 characters.
-2. "meta": Concise summary like "Serves 4 • 25 mins" or "Serves 4 • 585 kcal • 25 mins".
-   - CALORIES / NUTRITION: If calorie counts or energy per serving are explicitly present in the source text or metadata, include them (e.g. "585 kcal" or "2450 kJ").
-   - FALLBACK ESTIMATION: If no calorie info is provided anywhere in the source, estimate the calories per serving based on the total ingredients and yield, prefixing it with a tilde (e.g. "~520 kcal"). Keep this brief so the entire meta string stays under 32 characters.
-3. "ingredients": Exactly 6 to 9 comprehensive bullet items.
-   - GROUP LOGICAL COMPONENTS: Whenever there is a marinade, sauce, batter, or spice mix, combine those items onto ONE line with their exact measurements (e.g. "Marinade: 1 tbsp oyster, 2 tsp dark soy, 1 tsp cornstarch" or "Sauce: 2 tbsp soy, 2 tbsp oyster, 1 tbsp Shaoxing").
-   - DO NOT REPEAT LABELS: Never split the same category across multiple separate bullet points (e.g. do not have three separate lines starting with "Beef Marinade:").
+1. "title": Include author/publication attribution in possessive form, followed by the specific recipe name (e.g. "RecipeTin's BBQ Pork Ribs", "Lulu's Beef & Broccoli Fried Rice"). Keep under 40 characters.
+2. "meta": Concise summary like "Serves 4 • 585 kcal • 25 mins" or "Yield: 12 • ~420 kcal • 35m".
+   - If calorie counts or energy per serving are in the source, include them.
+   - If no calorie count is provided, calculate an informed estimation per serving based on total ingredients and yield, prefixing with a tilde (e.g. "~540 kcal"). Keep entire meta string under 32 characters.
+3. "ingredients": Exactly 5 to 8 grouped component items.
+   - GROUP LOGICAL COMPONENTS: Whenever there is a marinade, sauce, batter, dressing, or base, combine those items onto ONE line with their exact measurements (e.g. "Sauce: 2 tbsp oyster sauce, 2 tbsp soy, 1 tbsp Shaoxing wine").
+   - DO NOT REPEAT LABELS: Never split the same category across multiple separate bullet points.
    - METRIC CONVERSIONS: Convert weights to grams (g/kg), volumes to ml/tbsp/tsp, and oven temps to °C.
-   - RETAIN QUANTITIES: Always keep the exact measurements for every item inside the group.
-4. "steps": Exactly 5 to 6 concise action steps WITHOUT leading step numbers.
-   - HARDWARE CONVERSIONS: Convert cake pans, skillets, and dish sizes from inches to cm (e.g. 8-inch -> 20cm tin, 9x13-inch -> 23x33cm dish).
-   - LENGTH & FLOW: Write complete, natural imperative sentences of 14 to 22 words (max 120 characters).
-   - CRITICAL PRECISION: Retain vital pan temperatures, heat settings (low/med/high), and cooking/baking times.
+   - PRESERVE QUANTITIES: Keep exact measurements for every item inside the group.
+4. "steps": Exactly 5 to 6 concise action steps WITHOUT leading numbers.
+   - HARDWARE CONVERSIONS: Convert pan/dish dimensions from inches to cm.
+   - LENGTH & FLOW: Complete imperative sentences (max 120 characters per step).
+   - CRITICAL PRECISION: Retain key pan temps, heat settings, and cooking times.
 
 Output strictly valid JSON matching this schema:
 {{
@@ -114,8 +107,8 @@ Output strictly valid JSON matching this schema:
 """
 
     candidate_models = [
-        "gemini-3.5-flash-lite",
-        "gemini-3.8-flash",
+        "gemini-2.5-flash",
+        "gemini-2.5-flash-lite",
     ]
 
     for model_name in candidate_models:
@@ -129,11 +122,10 @@ Output strictly valid JSON matching this schema:
                 )
                 data = json.loads(response.text)
                 
-                # Strip accidental leading digits
                 if "steps" in data:
                     data["steps"] = [re.sub(r'^\d+[\.\)]\s*', '', s) for s in data["steps"]]
 
-                print(f"SUCCESS: Gemini ({model_name}) condensed the recipe successfully!")
+                print(f"SUCCESS: Gemini ({model_name}) condensed recipe successfully!")
                 return data
             except Exception as e:
                 err_msg = str(e)
@@ -150,9 +142,7 @@ def parse_and_save(recipe_url):
     print(f"Processing recipe from: {recipe_url}")
     parsed = urlparse(recipe_url)
     
-    # -------------------------------------------------------------
-    # Case A: Instagram Reels & Posts
-    # -------------------------------------------------------------
+    # Instagram URLs
     if "instagram.com" in parsed.netloc:
         print("Detected Instagram URL. Extracting caption...")
         try:
@@ -171,12 +161,10 @@ def parse_and_save(recipe_url):
             raw_instructions=[],
             raw_raw_text=caption
         )
-    # -------------------------------------------------------------
-    # Case B: Standard Web Scraper
-    # -------------------------------------------------------------
+    # Standard Web Pages (with wild_mode and raw text fallback)
     else:
         headers = {
-            "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8",
+            "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,*/*;q=0.8",
             "Accept-Language": "en-US,en;q=0.9",
             "Sec-Ch-Ua": '"Not A(Brand";v="99", "Google Chrome";v="121", "Chromium";v="121"',
             "Sec-Ch-Ua-Mobile": "?0",
@@ -196,31 +184,50 @@ def parse_and_save(recipe_url):
             
         response.raise_for_status()
 
+        condensed = None
         try:
-            scraper = scrape_html(html=response.text, org_url=recipe_url)
-        except Exception:
-            scraper = scrape_me(recipe_url)
+            scraper = scrape_html(html=response.text, org_url=recipe_url, wild_mode=True)
+            raw_title = scraper.title()
+            
+            try:
+                raw_yields = scraper.yields()
+            except Exception:
+                raw_yields = "N/A"
 
-        raw_title = scraper.title()
-        try:
-            raw_yields = scraper.yields()
-        except Exception:
-            raw_yields = "N/A"
+            try:
+                raw_time = f"{scraper.total_time()} mins"
+            except Exception:
+                raw_time = "N/A"
 
-        try:
-            raw_time = f"{scraper.total_time()} mins"
-        except Exception:
-            raw_time = "N/A"
+            raw_ingredients = scraper.ingredients()
+            try:
+                raw_instructions = scraper.instructions_list()
+            except Exception:
+                raw_instructions = [scraper.instructions()]
 
-        raw_ingredients = scraper.ingredients()
-        try:
-            raw_instructions = scraper.instructions_list()
-        except Exception:
-            raw_instructions = [scraper.instructions()]
+            if raw_ingredients and raw_instructions:
+                condensed = condense_with_gemini(
+                    recipe_url, raw_title, raw_yields, raw_time, raw_ingredients, raw_instructions
+                )
+        except Exception as e:
+            print(f"recipe-scrapers wild mode could not parse structured schema: {e}")
 
-        condensed = condense_with_gemini(
-            recipe_url, raw_title, raw_yields, raw_time, raw_ingredients, raw_instructions
-        )
+        # Fallback to direct text scraping if structured parser produced nothing
+        if not condensed:
+            print("Falling back to raw HTML AI extraction...")
+            clean_html = re.sub(r'<(script|style).*?</\1>', '', response.text, flags=re.DOTALL | re.IGNORECASE)
+            plain_text = re.sub(r'<[^>]+>', ' ', clean_html)
+            plain_text = re.sub(r'\s+', ' ', plain_text).strip()[:8000]
+
+            condensed = condense_with_gemini(
+                recipe_url,
+                raw_title="",
+                raw_yields="",
+                raw_time="",
+                raw_ingredients=[],
+                raw_instructions=[],
+                raw_raw_text=plain_text
+            )
 
     if not condensed:
         print("ERROR: Failed to generate condensed recipe data.")
