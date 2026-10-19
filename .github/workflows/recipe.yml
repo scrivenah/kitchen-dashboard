@@ -1,20 +1,18 @@
-name: Generate Kitchen Recipe
+name: Generate Kitchen Recipe Card
 
 on:
   repository_dispatch:
-    types: [new_recipe]
+    types: [render_recipe]
   workflow_dispatch:
     inputs:
       recipe_url:
-        description: 'Paste Recipe URL Here'
+        description: 'URL of the recipe to condense and render'
         required: true
-        default: 'https://www.bbcgoodfood.com/recipes/best-ever-chocolate-brownies-recipe'
+        type: string
 
 jobs:
   build-recipe:
     runs-on: ubuntu-latest
-    permissions:
-      contents: write
     steps:
       - name: Checkout Code
         uses: actions/checkout@v4
@@ -27,12 +25,13 @@ jobs:
 
       - name: Install Dependencies
         run: |
-          pip install recipe-scrapers google-genai pillow requests curl_cffi
+          pip install --upgrade pip
+          pip install curl_cffi recipe-scrapers google-genai pillow
 
       - name: Scrape & Render Recipe
         env:
-          RECIPE_URL: ${{ github.event.client_payload.url || github.event.inputs.recipe_url }}
           GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+          RECIPE_URL: ${{ github.event.client_payload.recipe_url || inputs.recipe_url }}
         run: |
           python fetch_recipe.py
           python render_recipe.py
