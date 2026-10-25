@@ -1,18 +1,19 @@
 {
-  "title": "Chef's Simple Dish",
-  "meta": "Serves 4 \u2022 ~450 kcal \u2022 30m",
+  "title": "Flavv's Sticky Chili Lime Chicken",
+  "meta": "Serves 4 \u2022 ~450 kcal \u2022 30 mins",
   "ingredients": [
-    "Main: 500g protein, 300g mixed vegetables",
-    "Sauce: 2 tbsp soy sauce, 1 tbsp oyster sauce, 1 tsp sesame oil",
-    "Aromatics: 2 cloves minced garlic, 1 tbsp grated ginger",
-    "Cooking: 2 tbsp vegetable oil"
+    "1 kg chicken thighs or drumsticks, salt and black pepper",
+    "Sauce: 3 tbsp honey, 3 tbsp soy sauce, 2 tbsp lime juice, 1 tbsp brown sugar",
+    "Aromatics & Heat: 4 cloves minced garlic, 1 tbsp grated ginger, 1 tbsp chili sauce",
+    "Oils: 1 tsp sesame oil, 1 tbsp cooking oil",
+    "Garnish: Fresh green and red chilies, cilantro, lime slices"
   ],
   "steps": [
-    "Prep all ingredients by chopping vegetables and measuring sauces.",
-    "Heat vegetable oil in a 30cm skillet over medium-high heat.",
-    "Add garlic and ginger, stirring constantly for 30 seconds until fragrant.",
-    "Add protein and cook until fully browned.",
-    "Toss in mixed vegetables and pour sauce mixture over the pan.",
-    "Simmer for 5 minutes until sauce thickens and serve hot."
+    "Pat chicken dry and season lightly with salt and black pepper.",
+    "Whisk honey, soy sauce, lime juice, brown sugar, garlic, ginger, chili sauce, and sesame oil in a bowl.",
+    "Heat cooking oil in a large skillet over medium-high heat and sear chicken until golden on both sides.",
+    "Pour sauce into skillet, reduce heat to medium, and simmer while turning chicken occasionally.",
+    "Spoon caramelized sauce over chicken until thick, glossy, and fully cooked.",
+    "Garnish with sliced chilies, cilantro, and lime slices, then serve hot."
   ]
 }
