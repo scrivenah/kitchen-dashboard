@@ -4,7 +4,14 @@
   <meta charset="UTF-8">
   <script src="https://cdn.tailwindcss.com"></script>
   <style>
-    @import url('https://fonts.googleapis.com/css2?family=Newsreader:ital,opsz,wght@0,6..72,500;0,6..72,700;1,6..72,400&family=Inter:wght@400;500;600;700&display=swap');
+    @import url('https://fonts.googleapis.com/css2?family=Newsreader:ital,opsz,wght@0,6..72,700&family=Inter:wght@600;700;800&display=swap');
+    
+    * {
+      -webkit-font-smoothing: none !important;
+      -moz-osx-font-smoothing: grayscale !important;
+      text-rendering: geometricPrecision !important;
+    }
+
     body {
       width: 800px;
       height: 480px;
@@ -12,10 +19,9 @@
       padding: 0;
       overflow: hidden;
       background-color: #ffffff;
-      font-family: 'Inter', sans-serif;
-      -webkit-font-smoothing: antialiased;
+      font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
     }
-    .serif { font-family: 'Newsreader', serif; }
+    .serif { font-family: 'Newsreader', Georgia, serif; }
   </style>
 </head>
 <body class="p-6 flex flex-col justify-between text-black select-none">
