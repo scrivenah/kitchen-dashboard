@@ -4,6 +4,7 @@ import datetime
 from dateutil import rrule as drrule
 from icalendar import Calendar
 from playwright.sync_api import sync_playwright
+from PIL import Image
 
 WIDTH, HEIGHT = 800, 480
 
@@ -194,12 +195,32 @@ for k, v in replacements.items():
 with open("rendered_page.html", "w", encoding="utf-8") as f:
     f.write(template)
 
-# Playwright Snapshot
+# Playwright Snapshot with Font Anti-Aliasing Flags
+temp_path = "temp_capture.png"
 with sync_playwright() as p:
-    browser = p.chromium.launch()
-    page = browser.new_page(viewport={"width": WIDTH, "height": HEIGHT}, device_scale_factor=1.0)
+    browser = p.chromium.launch(
+        args=[
+            "--disable-font-subpixel-positioning",
+            "--disable-lcd-text",
+            "--font-render-hinting=full",
+            "--force-color-profile=srgb"
+        ]
+    )
+    page = browser.new_page(
+        viewport={"width": WIDTH, "height": HEIGHT},
+        device_scale_factor=1.0
+    )
     page.goto(f"file://{os.path.abspath('rendered_page.html')}")
-    page.screenshot(path="dashboard.png")
+    page.wait_for_load_state("networkidle")
+    page.screenshot(path=temp_path)
     browser.close()
 
-log("Pristine web dashboard rendered to dashboard.png")
+# Clean Lossless Thresholding to Strip Subpixel Fringing
+raw_img = Image.open(temp_path).convert('RGB')
+clean_img = raw_img.convert('L').point(lambda p: 255 if p > 140 else 0).convert('RGB')
+clean_img.save("dashboard.png", "PNG", optimize=True)
+
+if os.path.exists(temp_path):
+    os.remove(temp_path)
+
+log("Clean, Kindle-sharp dashboard rendered to dashboard.png")
