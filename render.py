@@ -10,30 +10,21 @@ WIDTH, HEIGHT = 800, 480
 def log(msg):
     print(f"LOG: {msg}", flush=True)
 
-# --- HIGH-CONTRAST ACeP E-PAPER COLOR PALETTE ---
-# Pure solids eliminate dithering, fuzzy text, and missing borders
-COLOR_BG = (255, 255, 255)         # Pure paper white
-COLOR_CARD = (255, 255, 255)       # Pure card white
-COLOR_BORDER = (70, 75, 85)        # Solid, high-contrast dark border
-COLOR_BORDER_THIN = (140, 145, 155)# Secondary divider border
-COLOR_TEXT_DARK = (0, 0, 0)        # Pure pitch black for razor-sharp characters
-COLOR_TEXT_MUTED = (40, 45, 50)    # Dark charcoal for secondary readouts
-COLOR_PILL_BG = (235, 238, 245)    # Light gray tint for section badges
-COLOR_PILL_DARK = (45, 52, 64)     # Inverted badge fill for crisp readability
+# --- STRICT 1-BIT HIGH CONTRAST PALETTE ---
+# Pure solids eliminate dithering, fuzzy antialiasing, and Moiré hatched artifacts
+COLOR_BG = (255, 255, 255)         # 100% Paper White
+COLOR_CARD = (255, 255, 255)       # 100% White
+COLOR_BORDER = (0, 0, 0)           # 100% Pitch Black
+COLOR_BORDER_THIN = (0, 0, 0)      # 100% Pitch Black
+COLOR_TEXT_DARK = (0, 0, 0)        # 100% Pitch Black
+COLOR_TEXT_MUTED = (0, 0, 0)       # 100% Pitch Black
+COLOR_PILL_DARK = (0, 0, 0)        # Solid Black Badge (No gray dithering)
 
-# Event Accents (Saturated e-paper native pigments)
-COLOR_WORK = (0, 75, 195)          # Solid royal blue
-COLOR_AIRBNB = (220, 20, 60)       # Solid crimson red
-COLOR_FAMILY = (0, 140, 60)        # Forest green
-COLOR_HOLIDAY = (210, 100, 0)      # Rich amber/orange
-
-# Weather & Sky Palette
-COLOR_SUN = (245, 160, 0)          # Solar yellow-orange
-COLOR_SUN_RAY = (210, 110, 0)      # Saturated orange rays
-COLOR_CLOUD = (180, 195, 210)      # Visible sky-slate cloud body
-COLOR_CLOUD_BORDER = (40, 50, 70)  # Dark cloud perimeter
-COLOR_RAIN = (0, 95, 220)          # Deep rain blue
-COLOR_ACCENT_ORANGE = (220, 75, 0)
+# Event Markers (Solid black outlines/fills for hard thresholding)
+COLOR_WORK = (0, 0, 0)
+COLOR_AIRBNB = (0, 0, 0)
+COLOR_FAMILY = (0, 0, 0)
+COLOR_HOLIDAY = (0, 0, 0)
 
 # --- 1. CALENDAR FETCHER ---
 def get_calendar_events():
@@ -54,15 +45,6 @@ def get_calendar_events():
     for idx, url in enumerate(url_list):
         is_airbnb = "airbnb" in url.lower()
         is_holiday = "41p9gaols1it9m" in url.lower()
-
-        if is_airbnb:
-            category_color = COLOR_AIRBNB
-        elif is_holiday:
-            category_color = COLOR_HOLIDAY
-        elif idx == 0:
-            category_color = COLOR_FAMILY
-        else:
-            category_color = COLOR_WORK
 
         headers = {'User-Agent': 'Mozilla/5.0'}
         try:
@@ -127,13 +109,9 @@ def get_calendar_events():
                         except Exception:
                             pass
 
-                    event_color = category_color
-                    if "work" in summary.lower():
-                        event_color = COLOR_WORK
-
                     for d in set(active_dates):
                         if today <= d <= future_cutoff:
-                            raw_events.append((d, time_str, summary, event_color))
+                            raw_events.append((d, time_str, summary, COLOR_TEXT_DARK))
         except Exception as e:
             log(f"Feed error: {e}")
 
@@ -305,60 +283,45 @@ def load_font(size, bold=True):
                 pass
     return ImageFont.load_default()
 
-# Bumped font sizes and increased weights to eliminate e-paper blurriness
 font_hero = load_font(44, bold=True)
 font_title = load_font(18, bold=True)
 font_card_head = load_font(13, bold=True)
-font_body = load_font(14, bold=False)
-font_body_bold = load_font(14, bold=True)
+font_body = load_font(14, bold=True)
 font_small = load_font(12, bold=True)
 font_tiny = load_font(11, bold=True)
 
-# --- 5. HIGH-CONTRAST WEATHER ART ENGINE ---
-def draw_little_bird(draw_obj, bx, by, color=COLOR_TEXT_DARK):
-    draw_obj.arc([bx, by, bx + 8, by + 6], 180, 0, fill=color, width=2)
-    draw_obj.arc([bx + 7, by, bx + 15, by + 6], 180, 0, fill=color, width=2)
-
+# --- 5. CLEAN LINE-ART WEATHER ICONS (NO DITHER) ---
 def draw_homely_weather_art(draw_obj, code, x, y):
-    if code in [0, 1]:  # Sunny / Clear
-        # Pure solar sphere with solid ray accents
-        draw_obj.ellipse([x + 6, y + 6, x + 36, y + 36], fill=COLOR_SUN, outline=COLOR_SUN_RAY, width=2)
+    if code in [0, 1]:  # Sun
+        draw_obj.ellipse([x + 6, y + 6, x + 36, y + 36], outline=COLOR_BORDER, width=2)
         for dx, dy in [(-6, 0), (6, 0), (0, -6), (0, 6), (-4, -4), (4, -4), (-4, 4), (4, 4)]:
             cx, cy = x + 21 + dx * 2.8, y + 21 + dy * 2.8
-            draw_obj.ellipse([cx - 2, cy - 2, cx + 2, cy + 2], fill=COLOR_SUN_RAY)
-        draw_little_bird(draw_obj, x + 28, y + 2)
-
-    elif code in [2, 3]:  # Cloudy / Overcast
-        draw_obj.ellipse([x + 12, y + 8, x + 38, y + 32], fill=COLOR_CLOUD, outline=COLOR_CLOUD_BORDER, width=2)
-        draw_obj.ellipse([x + 2, y + 16, x + 24, y + 36], fill=COLOR_CLOUD, outline=COLOR_CLOUD_BORDER, width=2)
-        draw_obj.ellipse([x + 18, y + 14, x + 44, y + 36], fill=COLOR_CLOUD, outline=COLOR_CLOUD_BORDER, width=2)
-        draw_obj.rectangle([x + 12, y + 20, x + 36, y + 36], fill=COLOR_CLOUD)
-        draw_obj.line([(x + 2, y + 36), (x + 44, y + 36)], fill=COLOR_CLOUD_BORDER, width=2)
-
-    else:  # Rain / Showers
-        draw_obj.ellipse([x + 12, y + 6, x + 38, y + 28], fill=COLOR_CLOUD, outline=COLOR_CLOUD_BORDER, width=2)
-        draw_obj.ellipse([x + 2, y + 12, x + 24, y + 32], fill=COLOR_CLOUD, outline=COLOR_CLOUD_BORDER, width=2)
-        draw_obj.ellipse([x + 18, y + 10, x + 44, y + 32], fill=COLOR_CLOUD, outline=COLOR_CLOUD_BORDER, width=2)
-        draw_obj.rectangle([x + 12, y + 16, x + 36, y + 32], fill=COLOR_CLOUD)
-        draw_obj.line([(x + 2, y + 32), (x + 44, y + 32)], fill=COLOR_CLOUD_BORDER, width=2)
-
-        # Bold saturated rain streaks
+            draw_obj.ellipse([cx - 2, cy - 2, cx + 2, cy + 2], fill=COLOR_BORDER)
+    elif code in [2, 3]:  # Cloud
+        draw_obj.ellipse([x + 12, y + 8, x + 38, y + 32], outline=COLOR_BORDER, width=2)
+        draw_obj.ellipse([x + 2, y + 16, x + 24, y + 36], outline=COLOR_BORDER, width=2)
+        draw_obj.ellipse([x + 18, y + 14, x + 44, y + 36], outline=COLOR_BORDER, width=2)
+        draw_obj.line([(x + 2, y + 36), (x + 44, y + 36)], fill=COLOR_BORDER, width=2)
+    else:  # Rain
+        draw_obj.ellipse([x + 12, y + 6, x + 38, y + 28], outline=COLOR_BORDER, width=2)
+        draw_obj.ellipse([x + 2, y + 12, x + 24, y + 32], outline=COLOR_BORDER, width=2)
+        draw_obj.ellipse([x + 18, y + 10, x + 44, y + 32], outline=COLOR_BORDER, width=2)
+        draw_obj.line([(x + 2, y + 32), (x + 44, y + 32)], fill=COLOR_BORDER, width=2)
         for rx in [x + 9, x + 18, x + 27, x + 36]:
-            draw_obj.line([(rx, y + 35), (rx - 3, y + 43)], fill=COLOR_RAIN, width=3)
+            draw_obj.line([(rx, y + 35), (rx - 3, y + 43)], fill=COLOR_BORDER, width=2)
 
 def draw_mini_icon(draw_obj, code, x, y):
     if code in [0, 1]:
-        draw_obj.ellipse([x + 3, y + 3, x + 21, y + 21], fill=COLOR_SUN, outline=COLOR_SUN_RAY, width=2)
+        draw_obj.ellipse([x + 3, y + 3, x + 21, y + 21], outline=COLOR_BORDER, width=2)
     elif code in [2, 3]:
-        draw_obj.ellipse([x + 7, y + 4, x + 21, y + 18], fill=COLOR_CLOUD, outline=COLOR_CLOUD_BORDER, width=2)
-        draw_obj.ellipse([x + 1, y + 8, x + 13, y + 20], fill=COLOR_CLOUD, outline=COLOR_CLOUD_BORDER, width=2)
-        draw_obj.rectangle([x + 5, y + 12, x + 17, y + 20], fill=COLOR_CLOUD)
-        draw_obj.line([(x + 1, y + 20), (x + 21, y + 20)], fill=COLOR_CLOUD_BORDER, width=2)
+        draw_obj.ellipse([x + 7, y + 4, x + 21, y + 18], outline=COLOR_BORDER, width=2)
+        draw_obj.ellipse([x + 1, y + 8, x + 13, y + 20], outline=COLOR_BORDER, width=2)
+        draw_obj.line([(x + 1, y + 20), (x + 21, y + 20)], fill=COLOR_BORDER, width=2)
     else:
-        draw_obj.ellipse([x + 4, y + 2, x + 18, y + 15], fill=COLOR_CLOUD, outline=COLOR_CLOUD_BORDER, width=2)
-        draw_obj.line([(x + 2, y + 15), (x + 20, y + 15)], fill=COLOR_CLOUD_BORDER, width=2)
+        draw_obj.ellipse([x + 4, y + 2, x + 18, y + 15], outline=COLOR_BORDER, width=2)
+        draw_obj.line([(x + 2, y + 15), (x + 20, y + 15)], fill=COLOR_BORDER, width=2)
         for rx in [x + 6, x + 12, x + 18]:
-            draw_obj.line([(rx, y + 17), (rx - 2, y + 23)], fill=COLOR_RAIN, width=2)
+            draw_obj.line([(rx, y + 17), (rx - 2, y + 23)], fill=COLOR_BORDER, width=2)
 
 # --- HEADER BAR ---
 draw.rounded_rectangle([(12, 10), (WIDTH - 12, 48)], radius=14, fill=COLOR_CARD, outline=COLOR_BORDER, width=2)
@@ -380,8 +343,8 @@ draw.text((38, 72), "Today", font=font_card_head, fill=(255, 255, 255))
 
 y_cursor = 102
 if today_events:
-    for _, t_str, summ, ev_color in today_events[:4]:
-        draw.ellipse([26, y_cursor + 3, 34, y_cursor + 11], fill=ev_color)
+    for _, t_str, summ, _ in today_events[:4]:
+        draw.ellipse([26, y_cursor + 3, 34, y_cursor + 11], fill=COLOR_TEXT_DARK)
         label = summ if not t_str else f"{t_str} - {summ}"
         label = label[:34] + "..." if len(label) > 36 else label
         draw.text((42, y_cursor), label, font=font_body, fill=COLOR_TEXT_DARK)
@@ -397,8 +360,8 @@ draw.text((38, y_cursor + 4), "Tomorrow", font=font_card_head, fill=(255, 255, 2
 y_cursor += 32
 
 if tomorrow_events:
-    for _, t_str, summ, ev_color in tomorrow_events[:4]:
-        draw.ellipse([26, y_cursor + 3, 34, y_cursor + 11], fill=ev_color)
+    for _, t_str, summ, _ in tomorrow_events[:4]:
+        draw.ellipse([26, y_cursor + 3, 34, y_cursor + 11], fill=COLOR_TEXT_DARK)
         label = summ if not t_str else f"{t_str} - {summ}"
         label = label[:34] + "..." if len(label) > 36 else label
         draw.text((42, y_cursor), label, font=font_body, fill=COLOR_TEXT_DARK)
@@ -413,9 +376,9 @@ draw.text((36, 359), "Looking Ahead", font=font_card_head, fill=(255, 255, 255))
 
 y_ahead = 388
 if later_events:
-    for d, t_str, summ, ev_color in later_events[:3]:
+    for d, t_str, summ, _ in later_events[:3]:
         day_tag = d.strftime("%a %d")
-        draw.ellipse([26, y_ahead + 3, 34, y_ahead + 11], fill=ev_color)
+        draw.ellipse([26, y_ahead + 3, 34, y_ahead + 11], fill=COLOR_TEXT_DARK)
         ahead_label = f"{day_tag}: {summ}"
         ahead_label = ahead_label[:34] + "..." if len(ahead_label) > 36 else ahead_label
         draw.text((42, y_ahead), ahead_label, font=font_body, fill=COLOR_TEXT_DARK)
@@ -431,18 +394,17 @@ draw.text((472, 72), "Weather Station", font=font_card_head, fill=(255, 255, 255
 
 if ecowitt:
     draw.text((462, 96), f"{ecowitt['temp_c']}°", font=font_hero, fill=COLOR_TEXT_DARK)
-    draw.text((605, 108), f"Humidity: {ecowitt['humidity']}%", font=font_body_bold, fill=COLOR_TEXT_DARK)
+    draw.text((605, 108), f"Humidity: {ecowitt['humidity']}%", font=font_body, fill=COLOR_TEXT_DARK)
 
     if bom and "yesterday_high" in bom and "overnight_low" in bom:
         today_date_str = bom.get("today_date", now_wa.date()).strftime("%d %b")
         stat_line = f"Yesterday High: {bom['yesterday_high']}°C  |  Low: {bom['overnight_low']}°C"
         draw.text((462, 146), stat_line, font=font_small, fill=COLOR_TEXT_DARK)
 
-    # Solid 2px divider line instead of weak dots
     draw.line([(462, 166), (WIDTH - 24, 166)], fill=COLOR_BORDER_THIN, width=2)
 
-    draw.text((462, 174), f"Rain 24h: {ecowitt['rain_24h']} mm", font=font_body_bold, fill=COLOR_TEXT_DARK)
-    draw.text((615, 174), f"Weekly: {ecowitt['rain_weekly']} mm", font=font_body_bold, fill=COLOR_TEXT_DARK)
+    draw.text((462, 174), f"Rain 24h: {ecowitt['rain_24h']} mm", font=font_body, fill=COLOR_TEXT_DARK)
+    draw.text((615, 174), f"Weekly: {ecowitt['rain_weekly']} mm", font=font_body, fill=COLOR_TEXT_DARK)
     draw.text((462, 198), f"Last Event: {ecowitt['rain_event']} mm", font=font_body, fill=COLOR_TEXT_DARK)
     draw.text((615, 198), "(Reset at 9 AM)", font=font_small, fill=COLOR_TEXT_MUTED)
 else:
@@ -454,19 +416,17 @@ draw.rounded_rectangle([(460, 255), (690, 279)], radius=8, fill=COLOR_PILL_DARK)
 draw.text((472, 259), "Balingup Weather Forecast", font=font_card_head, fill=(255, 255, 255))
 
 if bom:
-    # Today Forecast Item
     draw_homely_weather_art(draw, bom["today"]["code"], 458, 286)
-    draw.text((514, 288), f"Today  Max {bom['today']['max']}° | Min {bom['today']['min']}°", font=font_body_bold, fill=COLOR_TEXT_DARK)
+    draw.text((514, 288), f"Today  Max {bom['today']['max']}° | Min {bom['today']['min']}°", font=font_body, fill=COLOR_TEXT_DARK)
     draw.text((514, 308), f"Precip: {bom['today']['rain_prob']}% ({bom['today']['rain_sum']} mm)", font=font_small, fill=COLOR_TEXT_MUTED)
 
-    # Tomorrow Forecast Item
     draw_homely_weather_art(draw, bom["tomorrow"]["code"], 458, 332)
-    draw.text((514, 334), f"Tomorrow  Max {bom['tomorrow']['max']}° | Min {bom['tomorrow']['min']}°", font=font_body_bold, fill=COLOR_TEXT_DARK)
+    draw.text((514, 334), f"Tomorrow  Max {bom['tomorrow']['max']}° | Min {bom['tomorrow']['min']}°", font=font_body, fill=COLOR_TEXT_DARK)
     draw.text((514, 354), f"Precip: {bom['tomorrow']['rain_prob']}% ({bom['tomorrow']['rain_sum']} mm)", font=font_small, fill=COLOR_TEXT_MUTED)
 
-    # Solar Strip Banner: High-contrast bordered card with dark text
+    # Solar Strip Banner
     solar_pill_box = [(458, 376), (WIDTH - 24, 404)]
-    draw.rounded_rectangle(solar_pill_box, radius=8, fill=COLOR_PILL_BG, outline=COLOR_BORDER, width=2)
+    draw.rounded_rectangle(solar_pill_box, radius=8, fill=COLOR_CARD, outline=COLOR_BORDER, width=2)
 
     solar_summary = f"Dawn {bom['first_light']}  •  Rise {bom['sunrise']}  •  Set {bom['sunset']}  •  Dusk {bom['last_light']}"
     draw.text((466, 383), solar_summary, font=font_tiny, fill=COLOR_TEXT_DARK)
@@ -483,5 +443,9 @@ if bom:
 else:
     draw.text((460, 310), "Forecast unavailable", font=font_body, fill=COLOR_TEXT_MUTED)
 
-img.save("dashboard.png", "PNG")
-log("Saved complete dashboard successfully!")
+# --- HARD THRESHOLD EXPORT ---
+# Converts antialiased edge pixels directly to 100% black or 100% white.
+# Completely starves SenseCraft's quantization dither engine of intermediate grays.
+final_img = img.convert('L').point(lambda p: 255 if p > 160 else 0).convert('RGB')
+final_img.save("dashboard.png", "PNG")
+log("Saved 1-bit high-contrast dashboard successfully!")
