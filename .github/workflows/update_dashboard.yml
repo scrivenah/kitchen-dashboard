@@ -22,7 +22,7 @@ jobs:
 
       - name: Install dependencies
         run: |
-          pip install requests icalendar python-dateutil playwright
+          pip install requests icalendar python-dateutil playwright Pillow
           playwright install --with-deps chromium
 
       - name: Render dashboard with Playwright
