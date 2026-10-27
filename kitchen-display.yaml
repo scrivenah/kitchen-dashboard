@@ -28,7 +28,7 @@ display:
     dc_pin: GPIO40
     busy_pin: GPIO48
     reset_pin: GPIO42
-    model: 7.3in-f
+    model: 7.30in-f
     update_interval: 15min
     id: epaper_display
     lambda: |-
