@@ -15,8 +15,8 @@ jobs:
         with:
           python-version: '3.11'
 
-      - name: Install ESPHome
-        run: pip install esphome pillow
+      - name: Install ESPHome and Esptool
+        run: pip install esphome pillow esptool
 
       - name: Create secrets file
         run: |
@@ -26,8 +26,32 @@ jobs:
       - name: Compile Firmware
         run: esphome compile kitchen-display.yaml
 
+      - name: Prepare Binaries and Merge Factory Image
+        run: |
+          mkdir -p output
+          
+          # Find the build directory
+          BUILD_DIR=$(find .esphome -type d -name "kitchen-dashboard" | head -n 1)
+          echo "Build directory: $BUILD_DIR"
+          
+          # Copy all bin files found to output/
+          find .esphome -name "*.bin" -exec cp {} output/ \;
+          
+          # Merge into a single flashable factory.bin at offset 0x0
+          # ESP32-S3 default offsets: bootloader (0x0), partition-table (0x8000), ota_data (0xe000), app (0x10000)
+          python -m esptool --chip esp32s3 merge_bin \
+            -o output/factory.bin \
+            --flash_mode dio \
+            --flash_size 16MB \
+            0x0 $(find .esphome -name "bootloader.bin" | head -n 1) \
+            0x8000 $(find .esphome -name "partition-table.bin" | head -n 1) \
+            0xe000 $(find .esphome -name "ota_data_initial.bin" | head -n 1) \
+            0x10000 $(find .esphome -name "firmware.bin" | head -n 1)
+
+          ls -lh output/
+
       - name: Upload compiled binary
         uses: actions/upload-artifact@v4
         with:
           name: reterminal-firmware
-          path: .esphome/build/**/firmware*.bin
+          path: output/factory.bin
