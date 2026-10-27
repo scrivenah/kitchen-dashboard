@@ -30,4 +30,4 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: reterminal-firmware
-          path: .esphome/build/kitchen-dashboard/.pioenvs/kitchen-dashboard/firmware-factory.bin
+          path: .esphome/build/**/firmware*.bin
