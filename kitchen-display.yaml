@@ -1,0 +1,41 @@
+esphome:
+  name: kitchen-dashboard
+  friendly_name: Kitchen Dashboard
+
+esp32:
+  board: esp32-s3-devkitc-1
+  framework:
+    type: esp-idf
+
+logger:
+  hardware_uart: USB_CDC
+
+wifi:
+  ssid: !secret wifi_ssid
+  password: !secret wifi_password
+  fast_connect: true
+
+http_request:
+  verify_ssl: false
+
+spi:
+  clk_pin: GPIO7
+  mosi_pin: GPIO9
+
+display:
+  - platform: waveshare_epaper
+    cs_pin: GPIO41
+    dc_pin: GPIO40
+    busy_pin: GPIO48
+    reset_pin: GPIO42
+    model: 7.3in-f
+    update_interval: 15min
+    id: epaper_display
+    lambda: |-
+      it.image(0, 0, id(dashboard_image));
+
+image:
+  - file: https://raw.githubusercontent.com/scrivenah/kitchen-dashboard/main/dashboard.png
+    id: dashboard_image
+    resize: 800x480
+    type: RGB24
