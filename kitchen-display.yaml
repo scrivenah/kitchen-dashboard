@@ -5,9 +5,7 @@ esphome:
 esp32:
   board: esp32-s3-devkitc-1
   framework:
-    type: arduino
-    platformio_options:
-      board_build.partitions: default_16MB.csv
+    type: esp-idf
 
 logger:
   hardware_uart: USB_CDC
@@ -36,8 +34,8 @@ display:
     lambda: |-
       it.image(0, 0, id(dashboard_image));
 
-image:
-  - file: https://raw.githubusercontent.com/scrivenah/kitchen-dashboard/main/dashboard.png
+online_image:
+  - url: https://raw.githubusercontent.com/scrivenah/kitchen-dashboard/main/dashboard.png
     id: dashboard_image
-    resize: 800x480
-    type: RGB
+    format: png
+    update_interval: 15min
