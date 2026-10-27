@@ -26,29 +26,24 @@ jobs:
       - name: Compile Firmware
         run: esphome compile kitchen-display.yaml
 
-      - name: Prepare Binaries and Merge Factory Image
+      - name: Merge Factory Binary
         run: |
           mkdir -p output
           
-          # Find the build directory
-          BUILD_DIR=$(find .esphome -type d -name "kitchen-dashboard" | head -n 1)
-          echo "Build directory: $BUILD_DIR"
+          # Find directory containing flasher_args.json
+          BUILD_DIR=$(dirname $(find .esphome -name "flasher_args.json" | head -n 1))
+          echo "Found build directory: $BUILD_DIR"
           
-          # Copy all bin files found to output/
-          find .esphome -name "*.bin" -exec cp {} output/ \;
+          cd "$BUILD_DIR"
           
-          # Merge into a single flashable factory.bin at offset 0x0
-          # ESP32-S3 default offsets: bootloader (0x0), partition-table (0x8000), ota_data (0xe000), app (0x10000)
-          python -m esptool --chip esp32s3 merge_bin \
-            -o output/factory.bin \
-            --flash_mode dio \
-            --flash_size 16MB \
-            0x0 $(find .esphome -name "bootloader.bin" | head -n 1) \
-            0x8000 $(find .esphome -name "partition-table.bin" | head -n 1) \
-            0xe000 $(find .esphome -name "ota_data_initial.bin" | head -n 1) \
-            0x10000 $(find .esphome -name "firmware.bin" | head -n 1)
-
-          ls -lh output/
+          # Read flasher_args.json and merge all binaries at their exact offsets
+          python -m esptool --chip esp32s3 merge-bin \
+            --output "$GITHUB_WORKSPACE/output/factory.bin" \
+            --flash-mode dio \
+            --flash-size 16MB \
+            @flash_args
+            
+          ls -lh "$GITHUB_WORKSPACE/output/factory.bin"
 
       - name: Upload compiled binary
         uses: actions/upload-artifact@v4
