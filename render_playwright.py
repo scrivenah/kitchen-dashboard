@@ -11,6 +11,28 @@ WIDTH, HEIGHT = 800, 480
 def log(msg):
     print(f"LOG: {msg}", flush=True)
 
+# --- NEW: ICON & MOON PHASE HELPERS ---
+def get_weather_icon(wmo_code):
+    if wmo_code in [0, 1]: return '☀️'
+    elif wmo_code in [2, 3]: return '☁️'
+    elif wmo_code in [45, 48]: return '🌫️'
+    elif wmo_code in [51, 53, 55, 56, 57, 61, 63, 65, 66, 67, 80, 81, 82]: return '🌧️'
+    elif wmo_code in [71, 73, 75, 77, 85, 86]: return '❄️'
+    elif wmo_code in [95, 96, 99]: return '⛈️'
+    return '🌤️'
+
+def get_moon_phase_name(date_obj):
+    new_moon = datetime.date(2000, 1, 6)
+    phase_ratio = ((date_obj - new_moon).days % 29.53058867) / 29.53058867
+    if phase_ratio < 0.03 or phase_ratio > 0.97: return '🌑'
+    elif phase_ratio < 0.22: return '🌒'
+    elif phase_ratio < 0.28: return '🌓'
+    elif phase_ratio < 0.47: return '🌔'
+    elif phase_ratio < 0.53: return '🌕'
+    elif phase_ratio < 0.72: return '🌖'
+    elif phase_ratio < 0.78: return '🌗'
+    else: return '🌘'
+
 # 1. Fetch Calendar
 def get_calendar_events():
     ics_urls = os.environ.get("CALENDAR_ICS_URLS", "")
@@ -28,7 +50,7 @@ def get_calendar_events():
 
     for idx, url in enumerate(url_list):
         is_airbnb = "airbnb" in url.lower()
-        color_class = "text-red-700" if is_airbnb else ("text-amber-700" if "41p9gaols1it9m" in url.lower() else "text-blue-700")
+        color_class = "text-black" # Forced to black for high-contrast e-paper
 
         try:
             res = requests.get(url, headers={'User-Agent': 'Mozilla/5.0'}, timeout=12)
@@ -42,8 +64,8 @@ def get_calendar_events():
                         summary = "Vic's Shack Reserved"
 
                     dtstart_prop = component.get("dtstart")
-                    if not dtstart_prop:
-                        continue
+                    if not dtstart_prop: continue
+                    
                     dtstart = dtstart_prop.dt
                     dtend_prop = component.get("dtend")
                     dtend = dtend_prop.dt if dtend_prop else dtstart
@@ -63,7 +85,6 @@ def get_calendar_events():
                         duration = base_end - base_start
 
                     effective_end = base_end - datetime.timedelta(days=1) if (is_all_day and base_end > base_start) else base_end
-
                     curr = base_start
                     while curr <= effective_end:
                         if today <= curr <= future_cutoff:
@@ -74,7 +95,6 @@ def get_calendar_events():
 
     unique = list({(e[0], e[1], e[2]): e for e in raw_events}.values())
     unique.sort(key=lambda x: (x[0], 0 if x[1] == "" else 1, x[1]))
-
     return [e for e in unique if e[0] == today], [e for e in unique if e[0] == tomorrow], [e for e in unique if e[0] > tomorrow]
 
 # 2. Fetch Ecowitt
@@ -112,6 +132,8 @@ def get_bom():
             return (datetime.datetime.fromisoformat(iso) + datetime.timedelta(minutes=delta)).strftime("%I:%M %p").lstrip('0')
 
         return {
+            "today_code": daily["weathercode"][1],
+            "tmrw_code": daily["weathercode"][2],
             "yesterday_high": round(daily["temperature_2m_max"][0]),
             "overnight_low": round(daily["temperature_2m_min"][1]),
             "first_light": fmt_time(daily["sunrise"][1], -26),
@@ -137,11 +159,11 @@ bom = get_bom() or {}
 
 def format_events(ev_list, empty_msg):
     if not ev_list:
-        return f'<div class="text-xs text-neutral-400 italic">{empty_msg}</div>'
+        return f'<div class="text-sm text-black italic">{empty_msg}</div>'
     out = []
-    for d, t, s, c in ev_list[:3]:
-        time_tag = f'<span class="font-mono text-[11px] text-neutral-500 mr-1.5">{t}</span>' if t else ''
-        out.append(f'<div class="text-xs truncate font-medium flex items-center"><span class="w-1.5 h-1.5 rounded-full bg-current {c} mr-2 flex-shrink-0"></span>{time_tag}<span class="truncate">{s}</span></div>')
+    for d, t, s, c in ev_list[:4]:
+        time_tag = f'<span class="font-mono text-xs text-black mr-2">{t}</span>' if t else ''
+        out.append(f'<div class="text-sm truncate font-medium flex items-center text-black"><span class="w-1.5 h-1.5 rounded-full bg-black mr-2 flex-shrink-0"></span>{time_tag}<span class="truncate">{s}</span></div>')
     return "\n".join(out)
 
 today_html = format_events(today_ev, "No events scheduled")
@@ -150,10 +172,10 @@ tmrw_html = format_events(tomorrow_ev, "No events scheduled")
 ahead_html = []
 for d, t, s, c in ahead_ev[:3]:
     day_lbl = d.strftime("%a %d")
-    ahead_html.append(f'<div class="text-xs truncate text-neutral-700 flex items-center"><span class="font-semibold text-neutral-900 w-12 flex-shrink-0">{day_lbl}</span><span class="truncate">{s}</span></div>')
-ahead_out = "\n".join(ahead_html) if ahead_html else '<div class="text-xs text-neutral-400 italic">No upcoming events</div>'
+    ahead_html.append(f'<div class="text-sm truncate text-black flex items-center"><span class="font-bold text-black w-14 flex-shrink-0">{day_lbl}</span><span class="truncate">{s}</span></div>')
+ahead_out = "\n".join(ahead_html) if ahead_html else '<div class="text-sm text-black italic">No upcoming events</div>'
 
-five_day_html = "".join([f'<div class="flex-1"><div class="text-xs font-bold uppercase">{d["day"]}</div><div class="text-xs font-medium text-neutral-600">{d["max"]}° / {d["min"]}°</div></div>' for d in bom.get("next_5", [])])
+five_day_html = "".join([f'<div class="flex-1"><div class="text-sm font-bold uppercase">{d["day"]}</div><div class="text-sm font-medium text-black">{d["max"]}° / {d["min"]}°</div></div>' for d in bom.get("next_5", [])])
 
 tz_wa = datetime.timezone(datetime.timedelta(hours=8))
 now_wa = datetime.datetime.now(tz_wa)
@@ -167,6 +189,10 @@ replacements = {
     "{{TODAY_EVENTS}}": today_html,
     "{{TOMORROW_EVENTS}}": tmrw_html,
     "{{AHEAD_EVENTS}}": ahead_out,
+    "{{WEATHER_ICON_LIVE}}": get_weather_icon(bom.get("today_code", 0)),
+    "{{WEATHER_ICON_TODAY}}": get_weather_icon(bom.get("today_code", 0)),
+    "{{WEATHER_ICON_TMRW}}": get_weather_icon(bom.get("tmrw_code", 0)),
+    "{{MOON_PHASE}}": get_moon_phase_name(now_wa.date()),
     "{{TEMP_C}}": str(eco.get("temp_c", "--")),
     "{{HUMIDITY}}": str(eco.get("humidity", "--")),
     "{{YESTERDAY_HIGH}}": str(bom.get("yesterday_high", "--")),
@@ -194,25 +220,23 @@ for k, v in replacements.items():
 with open("rendered_page.html", "w", encoding="utf-8") as f:
     f.write(template)
 
-# Playwright Snapshot with 2x Supersampling
+# Playwright Snapshot at exactly 1.0 scale
 temp_path = "temp_capture.png"
 with sync_playwright() as p:
     browser = p.chromium.launch()
-    page = browser.new_page(
-        viewport={"width": WIDTH, "height": HEIGHT},
-        device_scale_factor=2.0
-    )
+    # Removed device_scale_factor=2.0 to prevent supersampling
+    page = browser.new_page(viewport={"width": WIDTH, "height": HEIGHT})
     page.goto(f"file://{os.path.abspath('rendered_page.html')}")
     page.wait_for_load_state("networkidle")
     page.screenshot(path=temp_path)
     browser.close()
 
-# High-quality Lanczos downsampling to 800x480
+# Hard 1-bit thresholding to strip all anti-aliased gray pixels
 raw_img = Image.open(temp_path)
-final_img = raw_img.resize((WIDTH, HEIGHT), Image.Resampling.LANCZOS).convert('RGB')
+final_img = raw_img.convert('L').point(lambda p: 255 if p > 160 else 0).convert('RGB')
 final_img.save("dashboard.png", "PNG", optimize=True)
 
 if os.path.exists(temp_path):
     os.remove(temp_path)
 
-log("Rendered crisp, supersampled dashboard to dashboard.png")
+log("Rendered crisp, 1-bit thresholded dashboard to dashboard.png")
