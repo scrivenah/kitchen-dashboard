@@ -30,20 +30,28 @@ jobs:
         run: |
           mkdir -p output
           
-          # Find directory containing flasher_args.json
-          BUILD_DIR=$(dirname $(find .esphome -name "flasher_args.json" | head -n 1))
-          echo "Found build directory: $BUILD_DIR"
+          # Dynamically find the exact paths for the 4 required ESP-IDF binaries
+          BOOTLOADER=$(find .esphome -name "bootloader.bin" | head -n 1)
+          PARTITIONS=$(find .esphome -name "partition-table.bin" | head -n 1)
+          OTA=$(find .esphome -name "ota_data_initial.bin" | head -n 1)
+          APP=$(find .esphome -name "kitchen-dashboard.bin" | head -n 1)
           
-          cd "$BUILD_DIR"
+          echo "Bootloader: $BOOTLOADER"
+          echo "Partitions: $PARTITIONS"
+          echo "OTA Data: $OTA"
+          echo "Application: $APP"
           
-          # Read flasher_args.json and merge all binaries at their exact offsets
-          python -m esptool --chip esp32s3 merge-bin \
-            --output "$GITHUB_WORKSPACE/output/factory.bin" \
-            --flash-mode dio \
-            --flash-size 16MB \
-            @flash_args
+          # Merge them using the exact offsets from the ESP-IDF configuration
+          python -m esptool --chip esp32s3 merge_bin \
+            -o output/factory.bin \
+            --flash_mode dio \
+            --flash_size 16MB \
+            0x0 "$BOOTLOADER" \
+            0x8000 "$PARTITIONS" \
+            0x9000 "$OTA" \
+            0x10000 "$APP"
             
-          ls -lh "$GITHUB_WORKSPACE/output/factory.bin"
+          ls -lh output/
 
       - name: Upload compiled binary
         uses: actions/upload-artifact@v4
