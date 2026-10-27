@@ -30,11 +30,11 @@ jobs:
         run: |
           mkdir -p output
           
-          # Dynamically find the exact paths for the 4 required ESP-IDF binaries
+          # Dynamically find the exact paths using wildcards/correct names
           BOOTLOADER=$(find .esphome -name "bootloader.bin" | head -n 1)
-          PARTITIONS=$(find .esphome -name "partition-table.bin" | head -n 1)
+          PARTITIONS=$(find .esphome -name "partition*.bin" | head -n 1)
           OTA=$(find .esphome -name "ota_data_initial.bin" | head -n 1)
-          APP=$(find .esphome -name "kitchen-dashboard.bin" | head -n 1)
+          APP=$(find .esphome -name "firmware.bin" | head -n 1)
           
           echo "Bootloader: $BOOTLOADER"
           echo "Partitions: $PARTITIONS"
