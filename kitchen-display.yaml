@@ -5,8 +5,9 @@ esphome:
 esp32:
   board: esp32-s3-devkitc-1
   framework:
-    type: esp-idf
-  partitions: default_16MB.csv
+    type: arduino
+    platformio_options:
+      board_build.partitions: default_16MB.csv
 
 logger:
   hardware_uart: USB_CDC
