@@ -1,0 +1,33 @@
+name: Build ESPHome Firmware
+
+on:
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repo
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install ESPHome
+        run: pip install esphome
+
+      - name: Create secrets file
+        run: |
+          echo "wifi_ssid: \"${{ secrets.WIFI_SSID }}\"" > secrets.yaml
+          echo "wifi_password: \"${{ secrets.WIFI_PASSWORD }}\"" >> secrets.yaml
+
+      - name: Compile Firmware
+        run: esphome compile kitchen-display.yaml
+
+      - name: Upload compiled binary
+        uses: actions/upload-artifact@v4
+        with:
+          name: reterminal-firmware
+          path: .esphome/build/kitchen-dashboard/.pioenvs/kitchen-dashboard/firmware.bin
