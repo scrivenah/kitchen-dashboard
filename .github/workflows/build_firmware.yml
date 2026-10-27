@@ -16,7 +16,7 @@ jobs:
           python-version: '3.11'
 
       - name: Install ESPHome
-        run: pip install esphome
+        run: pip install esphome pillow
 
       - name: Create secrets file
         run: |
