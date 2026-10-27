@@ -1,6 +1,10 @@
 esphome:
   name: kitchen-dashboard
   friendly_name: Kitchen Dashboard
+  on_boot:
+    priority: 800
+    then:
+      - delay: 5s
 
 esp32:
   board: esp32-s3-devkitc-1
@@ -30,7 +34,7 @@ display:
   - platform: epaper_spi
     id: epaper_display
     model: Seeed-reTerminal-E1002
-    update_interval: 15min
+    update_interval: never
     lambda: |-
       it.image(0, 0, id(dashboard_image));
 
@@ -40,3 +44,6 @@ online_image:
     format: png
     type: RGB
     update_interval: 15min
+    on_download_finished:
+      then:
+        - component.update: epaper_display
