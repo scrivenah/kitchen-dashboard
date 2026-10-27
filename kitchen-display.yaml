@@ -38,4 +38,4 @@ image:
   - file: https://raw.githubusercontent.com/scrivenah/kitchen-dashboard/main/dashboard.png
     id: dashboard_image
     resize: 800x480
-    type: RGB24
+    type: RGB
