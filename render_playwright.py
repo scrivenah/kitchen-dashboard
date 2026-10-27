@@ -11,27 +11,32 @@ WIDTH, HEIGHT = 800, 480
 def log(msg):
     print(f"LOG: {msg}", flush=True)
 
-# --- NEW: ICON & MOON PHASE HELPERS ---
+# --- NEW: SVG ICON & TEXT MOON PHASE HELPERS ---
 def get_weather_icon(wmo_code):
-    if wmo_code in [0, 1]: return '☀️'
-    elif wmo_code in [2, 3]: return '☁️'
-    elif wmo_code in [45, 48]: return '🌫️'
-    elif wmo_code in [51, 53, 55, 56, 57, 61, 63, 65, 66, 67, 80, 81, 82]: return '🌧️'
-    elif wmo_code in [71, 73, 75, 77, 85, 86]: return '❄️'
-    elif wmo_code in [95, 96, 99]: return '⛈️'
-    return '🌤️'
+    # Pure inline SVG vectors (Feather icons). These scale perfectly and render 100% solid black.
+    sun = '<svg width="1em" height="1em" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="5"></circle><line x1="12" y1="1" x2="12" y2="3"></line><line x1="12" y1="21" x2="12" y2="23"></line><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"></line><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"></line><line x1="1" y1="12" x2="3" y2="12"></line><line x1="21" y1="12" x2="23" y2="12"></line><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"></line><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"></line></svg>'
+    cloud = '<svg width="1em" height="1em" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17.5 19H9a7 7 0 1 1 6.71-9h1.79a4.5 4.5 0 1 1 0 9Z"></path></svg>'
+    rain = '<svg width="1em" height="1em" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 16.58A5 5 0 0 0 18 7h-1.26A8 8 0 1 0 4 15.25"></path><path d="M16 20l-2 2"></path><path d="M8 20l-2 2"></path><path d="M12 20l-2 2"></path><path d="M16 16l-2 2"></path><path d="M8 16l-2 2"></path><path d="M12 16l-2 2"></path></svg>'
+    storm = '<svg width="1em" height="1em" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 16.58A5 5 0 0 0 18 7h-1.26A8 8 0 1 0 4 15.25"></path><polygon points="13 11 9 17 15 17 11 23"></polygon></svg>'
+    
+    if wmo_code in [0, 1]: return sun
+    elif wmo_code in [2, 3, 45, 48]: return cloud
+    elif wmo_code in [95, 96, 99]: return storm
+    elif wmo_code >= 50: return rain
+    return sun
 
 def get_moon_phase_name(date_obj):
+    # Returning plain text is cleaner and avoids all character encoding issues
     new_moon = datetime.date(2000, 1, 6)
     phase_ratio = ((date_obj - new_moon).days % 29.53058867) / 29.53058867
-    if phase_ratio < 0.03 or phase_ratio > 0.97: return '🌑'
-    elif phase_ratio < 0.22: return '🌒'
-    elif phase_ratio < 0.28: return '🌓'
-    elif phase_ratio < 0.47: return '🌔'
-    elif phase_ratio < 0.53: return '🌕'
-    elif phase_ratio < 0.72: return '🌖'
-    elif phase_ratio < 0.78: return '🌗'
-    else: return '🌘'
+    if phase_ratio < 0.03 or phase_ratio > 0.97: return 'New Moon'
+    elif phase_ratio < 0.22: return 'Waxing Crescent'
+    elif phase_ratio < 0.28: return 'First Quarter'
+    elif phase_ratio < 0.47: return 'Waxing Gibbous'
+    elif phase_ratio < 0.53: return 'Full Moon'
+    elif phase_ratio < 0.72: return 'Waning Gibbous'
+    elif phase_ratio < 0.78: return 'Last Quarter'
+    else: return 'Waning Crescent'
 
 # 1. Fetch Calendar
 def get_calendar_events():
