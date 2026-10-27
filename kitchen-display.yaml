@@ -37,5 +37,5 @@ display:
 online_image:
   - url: https://raw.githubusercontent.com/scrivenah/kitchen-dashboard/main/dashboard.png
     id: dashboard_image
-    format: png
+    type: RGB
     update_interval: 15min
