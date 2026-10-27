@@ -10,6 +10,9 @@ esp32:
   board: esp32-s3-devkitc-1
   framework:
     type: esp-idf
+    sdkconfig_options:
+      CONFIG_ESP_CONSOLE_USB_SERIAL_JTAG: "y"
+      CONFIG_ESP_CONSOLE_UART_DEFAULT: "n"
 
 psram:
   mode: octal
@@ -17,6 +20,7 @@ psram:
 
 logger:
   hardware_uart: USB_CDC
+  level: DEBUG
 
 wifi:
   ssid: !secret wifi_ssid
