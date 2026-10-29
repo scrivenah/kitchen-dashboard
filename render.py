@@ -235,7 +235,7 @@ draw.text((WIDTH - 200, 21), f"Updated {now_wa.strftime('%I:%M %p').lstrip('0')}
 if now_wa.month == 10 and now_wa.day == 31: draw.text((380, 18), "🎃", font=font_title, fill=C_ORANGE)
 elif now_wa.month == 12 and now_wa.day >= 24: draw.text((380, 18), "🎄", font=font_title, fill=C_GREEN)
 
-# --- LEFT COLUMN: AGENDA (Width narrowed to 360) ---
+# --- LEFT COLUMN: AGENDA ---
 draw.rounded_rectangle([(12, 58), (370, 335)], radius=16, fill=C_WHITE, outline=C_BLACK, width=2)
 draw.text((26, 68), "Today", font=font_title, fill=C_BLACK)
 
@@ -274,11 +274,9 @@ if later_events:
 else:
     draw.text((28, y_ahead), "No upcoming events this week.", font=font_body, fill=C_BLACK)
 
-
-# --- RIGHT COLUMN: COMBINED WEATHER & FORECAST (Expanded width) ---
+# --- RIGHT COLUMN: COMBINED WEATHER & FORECAST ---
 draw.rounded_rectangle([(382, 58), (WIDTH - 12, 468)], radius=16, fill=C_WHITE, outline=C_BLACK, width=2)
 
-# Weather Station Section
 draw.text((396, 68), "Weather Station", font=font_title, fill=C_BLACK)
 
 if ecowitt:
@@ -290,41 +288,38 @@ if ecowitt:
 else:
     draw.text((396, 110), "Sensors connecting...", font=font_body, fill=C_BLACK)
 
-# Shifted Divider
 draw.line([(396, 204), (774, 204)], fill=C_BLACK, width=2)
-
-# Balingup Forecast Section
 draw.text((396, 214), "Balingup Weather Forecast", font=font_title, fill=C_BLACK)
 
 if bom:
+    # Lifted icon Y to counteract font padding
     t_icon, t_color = get_weather_icon(bom["today"]["code"])
-    draw.text((396, 238), t_icon, font=font_wi_large, fill=t_color)
-    draw.text((452, 240), f"Today  Max {bom['today']['max']}° | Min {bom['today']['min']}°", font=font_body_bold, fill=C_BLACK)
-    draw.text((452, 260), f"Rain: {bom['today']['rain_sum']}mm | {bom['today']['rain_prob']}%", font=font_small, fill=C_BLACK)
+    draw.text((396, 226), t_icon, font=font_wi_large, fill=t_color) 
+    draw.text((452, 238), f"Today  Max {bom['today']['max']}° | Min {bom['today']['min']}°", font=font_body_bold, fill=C_BLACK)
+    draw.text((452, 258), f"Rain: {bom['today']['rain_sum']}mm | {bom['today']['rain_prob']}%", font=font_small, fill=C_BLACK)
 
     tm_icon, tm_color = get_weather_icon(bom["tomorrow"]["code"])
-    draw.text((396, 286), tm_icon, font=font_wi_large, fill=tm_color)
-    draw.text((452, 288), f"Tomorrow  Max {bom['tomorrow']['max']}° | Min {bom['tomorrow']['min']}°", font=font_body_bold, fill=C_BLACK)
-    draw.text((452, 308), f"Rain: {bom['tomorrow']['rain_sum']}mm | {bom['tomorrow']['rain_prob']}%", font=font_small, fill=C_BLACK)
+    draw.text((396, 274), tm_icon, font=font_wi_large, fill=tm_color)
+    draw.text((452, 286), f"Tomorrow  Max {bom['tomorrow']['max']}° | Min {bom['tomorrow']['min']}°", font=font_body_bold, fill=C_BLACK)
+    draw.text((452, 306), f"Rain: {bom['tomorrow']['rain_sum']}mm | {bom['tomorrow']['rain_prob']}%", font=font_small, fill=C_BLACK)
 
-    # 2x2 Solar and Moon Grid
-    draw.text((396, 344), f"Dawn: {bom['first_light']}  •  Rise: {bom['sunrise']}", font=font_small, fill=C_BLACK)
-    draw.text((396, 364), f"Set: {bom['sunset']}  •  Dusk: {bom['last_light']}", font=font_small, fill=C_BLACK)
+    draw.text((396, 340), f"Dawn: {bom['first_light']}  •  Rise: {bom['sunrise']}", font=font_small, fill=C_BLACK)
+    draw.text((396, 360), f"Set: {bom['sunset']}  •  Dusk: {bom['last_light']}", font=font_small, fill=C_BLACK)
     
     moon_name, moon_icon = get_moon_phase(now_wa.date())
-    draw.text((610, 340), moon_icon, font=font_wi_large, fill=C_BLACK)
-    draw.text((660, 344), "Moon:", font=font_small_bold, fill=C_BLACK)
-    draw.text((660, 364), moon_name, font=font_small, fill=C_BLACK)
+    draw.text((610, 328), moon_icon, font=font_wi_large, fill=C_BLACK)
+    draw.text((660, 340), "Moon:", font=font_small_bold, fill=C_BLACK)
+    draw.text((660, 360), moon_name, font=font_small, fill=C_BLACK)
 
-    # 5-Day Strip (Moved down and spaced out)
+    # Lifted 5-day strip up by 14px to clear bottom border
     col_width = (WIDTH - 12 - 382) / 5
     for i, item in enumerate(bom.get("next_5_days", [])):
         center_x = 382 + (i * col_width) + (col_width / 2)
         n_icon, n_color = get_weather_icon(item["code"])
-        draw.text((center_x - 16, 396), n_icon, font=font_wi_small, fill=n_color)
-        draw.text((center_x - 12, 432), item["day_name"], font=font_tiny, fill=C_BLACK)
-        draw.text((center_x - 18, 446), f"{item['max']}°|{item['min']}°", font=font_tiny, fill=C_BLACK)
-        draw.text((center_x - 16, 460), f"{item['rain']}mm", font=font_tiny, fill=C_BLACK)
+        draw.text((center_x - 16, 384), n_icon, font=font_wi_small, fill=n_color)
+        draw.text((center_x - 12, 418), item["day_name"], font=font_tiny, fill=C_BLACK)
+        draw.text((center_x - 18, 432), f"{item['max']}°|{item['min']}°", font=font_tiny, fill=C_BLACK)
+        draw.text((center_x - 16, 446), f"{item['rain']}mm", font=font_tiny, fill=C_BLACK)
 
 img.save("dashboard.png", "PNG", optimize=True)
 log("Re-aligned typography dashboard generated successfully!")
