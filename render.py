@@ -154,12 +154,14 @@ def get_balingup_bom():
                 "max": round(daily["temperature_2m_max"][1]),
                 "min": round(daily["temperature_2m_min"][1]),
                 "rain_prob": daily.get("precipitation_probability_max", [0]*8)[1] or 0,
+                "rain_sum": daily.get("precipitation_sum", [0]*8)[1] or 0.0,
             },
             "tomorrow": {
                 "code": daily["weathercode"][2],
                 "max": round(daily["temperature_2m_max"][2]),
                 "min": round(daily["temperature_2m_min"][2]),
                 "rain_prob": daily.get("precipitation_probability_max", [0]*8)[2] or 0,
+                "rain_sum": daily.get("precipitation_sum", [0]*8)[2] or 0.0,
             },
             "next_5_days": [{
                 "day_name": dates[i].strftime("%a").capitalize(), 
@@ -181,17 +183,17 @@ def get_weather_icon(wmo_code):
     elif wmo_code in [95, 96, 99]: return ("\uf01e", C_RED) # Thunderstorm
     return ("\uf00d", C_YELLOW)
 
-def get_moon_phase_name(date_obj):
+def get_moon_phase(date_obj):
     new_moon = datetime.date(2000, 1, 6)
     phase_ratio = ((date_obj - new_moon).days % 29.53058867) / 29.53058867
-    if phase_ratio < 0.03 or phase_ratio > 0.97: return 'New Moon'
-    elif phase_ratio < 0.22: return 'Waxing Crescent'
-    elif phase_ratio < 0.28: return 'First Quarter'
-    elif phase_ratio < 0.47: return 'Waxing Gibbous'
-    elif phase_ratio < 0.53: return 'Full Moon'
-    elif phase_ratio < 0.72: return 'Waning Gibbous'
-    elif phase_ratio < 0.78: return 'Last Quarter'
-    else: return 'Waning Crescent'
+    if phase_ratio < 0.03 or phase_ratio > 0.97: return ('New Moon', '\uf0eb')
+    elif phase_ratio < 0.22: return ('Waxing Crescent', '\uf0db')
+    elif phase_ratio < 0.28: return ('First Quarter', '\uf09c')
+    elif phase_ratio < 0.47: return ('Waxing Gibbous', '\uf0e0')
+    elif phase_ratio < 0.53: return ('Full Moon', '\uf0a3')
+    elif phase_ratio < 0.72: return ('Waning Gibbous', '\uf0e5')
+    elif phase_ratio < 0.78: return ('Last Quarter', '\uf0aa')
+    else: return ('Waning Crescent', '\uf0ea')
 
 def load_font(filename, size):
     try: return ImageFont.truetype(f"font/{filename}", size)
@@ -268,8 +270,11 @@ if later_events:
 else:
     draw.text((28, y_ahead), "No upcoming events this week.", font=font_body, fill=C_BLACK)
 
-# --- RIGHT COLUMN: WEATHER WIDGETS ---
-draw.rounded_rectangle([(406, 58), (WIDTH - 12, 235)], radius=16, fill=C_WHITE, outline=C_BLACK, width=2)
+
+# --- RIGHT COLUMN: COMBINED WEATHER & FORECAST ---
+draw.rounded_rectangle([(406, 58), (WIDTH - 12, 468)], radius=16, fill=C_WHITE, outline=C_BLACK, width=2)
+
+# Weather Station Section
 draw.rounded_rectangle([(419, 68), (565, 92)], radius=8, fill=C_BLACK)
 draw.text((431, 71), "Weather Station", font=font_card_head, fill=C_WHITE)
 
@@ -284,24 +289,27 @@ if ecowitt:
 else:
     draw.text((421, 110), "Sensors connecting...", font=font_body, fill=C_BLACK)
 
-draw.rounded_rectangle([(406, 245), (WIDTH - 12, 468)], radius=16, fill=C_WHITE, outline=C_BLACK, width=2)
-draw.rounded_rectangle([(419, 255), (665, 279)], radius=8, fill=C_BLACK)
-draw.text((431, 258), "Balingup Weather Forecast", font=font_card_head, fill=C_WHITE)
+# Balingup Forecast Section
+draw.rounded_rectangle([(419, 230), (665, 254)], radius=8, fill=C_BLACK)
+draw.text((431, 233), "Balingup Weather Forecast", font=font_card_head, fill=C_WHITE)
 
 if bom:
     t_icon, t_color = get_weather_icon(bom["today"]["code"])
-    draw.text((419, 280), t_icon, font=font_wi_large, fill=t_color)
-    draw.text((473, 286), f"Today  Max {bom['today']['max']}° | Min {bom['today']['min']}°", font=font_body, fill=C_BLACK)
-    draw.text((473, 306), f"Precip: {bom['today']['rain_prob']}%", font=font_small, fill=C_BLACK)
+    draw.text((419, 260), t_icon, font=font_wi_large, fill=t_color)
+    draw.text((473, 262), f"Today  Max {bom['today']['max']}° | Min {bom['today']['min']}°", font=font_body, fill=C_BLACK)
+    draw.text((473, 282), f"Rain: {bom['today']['rain_sum']}mm | {bom['today']['rain_prob']}%", font=font_small, fill=C_BLACK)
 
     tm_icon, tm_color = get_weather_icon(bom["tomorrow"]["code"])
-    draw.text((419, 326), tm_icon, font=font_wi_large, fill=tm_color)
-    draw.text((473, 332), f"Tomorrow  Max {bom['tomorrow']['max']}° | Min {bom['tomorrow']['min']}°", font=font_body, fill=C_BLACK)
-    draw.text((473, 352), f"Precip: {bom['tomorrow']['rain_prob']}%", font=font_small, fill=C_BLACK)
+    draw.text((419, 306), tm_icon, font=font_wi_large, fill=tm_color)
+    draw.text((473, 308), f"Tomorrow  Max {bom['tomorrow']['max']}° | Min {bom['tomorrow']['min']}°", font=font_body, fill=C_BLACK)
+    draw.text((473, 328), f"Rain: {bom['tomorrow']['rain_sum']}mm | {bom['tomorrow']['rain_prob']}%", font=font_small, fill=C_BLACK)
 
-    # Simplified Solar Row (No box, prevents clutter)
-    draw.text((417, 376), f"Moon: {get_moon_phase_name(now_wa.date())}", font=font_tiny, fill=C_ORANGE)
-    draw.text((548, 376), f"Dawn: {bom['first_light']} • Rise: {bom['sunrise']} • Set: {bom['sunset']}", font=font_tiny, fill=C_BLACK)
+    # Separated Solar and Moon Lines
+    draw.text((417, 355), f"Dawn: {bom['first_light']} • Rise: {bom['sunrise']} • Set: {bom['sunset']} • Dusk: {bom['last_light']}", font=font_tiny, fill=C_BLACK)
+    
+    moon_name, moon_icon = get_moon_phase(now_wa.date())
+    draw.text((417, 369), moon_icon, font=font_wi_small, fill=C_ORANGE)
+    draw.text((455, 375), f"Moon: {moon_name}", font=font_tiny, fill=C_ORANGE)
 
     # 5-Day Strip
     col_width = (WIDTH - 12 - 406) / 5
@@ -314,4 +322,4 @@ if bom:
         draw.text((center_x - 16, 452), f"{item['rain']}mm", font=font_tiny, fill=C_BLACK)
 
 img.save("dashboard.png", "PNG", optimize=True)
-log("Saved cleanly rendered 7-color dashboard successfully!")
+log("Saved perfectly spaced 7-color dashboard successfully!")
