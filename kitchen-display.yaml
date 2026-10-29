@@ -30,9 +30,50 @@ wifi:
 http_request:
   verify_ssl: false
 
+# --- NEW: TIME & SYNCHRONIZATION ---
+time:
+  - platform: sntp
+    id: sntp_time
+    timezone: "AWST-8" 
+    on_time:
+      - seconds: 0
+        minutes: 2, 32 # 2 minutes after GitHub creates the image on the hour/half-hour
+        then:
+          - component.update: dashboard_image # Trigger the download
+
+# --- NEW: BATTERY FONT & SENSORS ---
+font:
+  - file: "font/Amazon Ember Bold.ttf"
+    id: font_battery
+    size: 16
+
+switch:
+  - platform: gpio
+    pin: GPIO21
+    id: battery_enable
+    restore_mode: ALWAYS_ON
+
+sensor:
+  - platform: adc
+    pin: GPIO1
+    name: "Battery Voltage"
+    id: battery_v
+    update_interval: 60s
+    attenuation: 11db
+
 spi:
   clk_pin: GPIO7
   mosi_pin: GPIO9
+
+online_image:
+  - url: https://raw.githubusercontent.com/scrivenah/kitchen-dashboard/main/dashboard.png
+    id: dashboard_image
+    format: png
+    type: RGB
+    update_interval: never # Controlled by the SNTP time block now
+    on_download_finished:
+      then:
+        - component.update: epaper_display
 
 display:
   - platform: epaper_spi
@@ -40,14 +81,12 @@ display:
     model: Seeed-reTerminal-E1002
     update_interval: never
     lambda: |-
+      // 1. Draw the downloaded image
       it.image(0, 0, id(dashboard_image));
-
-online_image:
-  - url: https://raw.githubusercontent.com/scrivenah/kitchen-dashboard/main/dashboard.png
-    id: dashboard_image
-    format: png
-    type: RGB
-    update_interval: 15min
-    on_download_finished:
-      then:
-        - component.update: epaper_display
+      
+      // 2. Stamp the battery over the top right corner
+      if (id(battery_v).has_state()) {
+        it.printf(780, 20, id(font_battery), TextAlign::TOP_RIGHT, "%.1fV", id(battery_v).state);
+      } else {
+        it.printf(780, 20, id(font_battery), TextAlign::TOP_RIGHT, "--V");
+      }
