@@ -37,9 +37,9 @@ time:
     timezone: "AWST-8" 
     on_time:
       - seconds: 0
-        minutes: 2, 32 # 2 minutes after GitHub creates the image on the hour/half-hour
+        minutes: 28, 58 
         then:
-          - component.update: dashboard_image # Trigger the download
+          - component.update: dashboard_image
 
 # --- NEW: BATTERY FONT & SENSORS ---
 font:
