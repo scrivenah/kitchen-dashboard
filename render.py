@@ -189,12 +189,21 @@ def get_moon_phase(date_obj):
     # Calculate exact days into the 29.53-day cycle
     lunar_days = (date_obj - new_moon).days % 29.53058867
     
-    # Map the cycle to the 28 icon buckets (0 to 27)
+    # True astronomical index (0 to 27)
     icon_index = int(round((lunar_days / 29.53058867) * 28)) % 28
     
-    # The primary moon set in weather-icons is perfectly sequential from \uf095 to \uf0b0
-    moon_icon = chr(0xf095 + icon_index)
+    # Southern Hemisphere visual inversion: 
+    # A Waxing moon in the SH looks like a Waning moon in the NH
+    sh_visual_index = (28 - icon_index) % 28
     
+    # Map to the wi-moon-alt set 
+    # New Moon is f0eb, the sequence then runs from f0d0 to f0ea
+    if sh_visual_index == 0:
+        moon_icon = '\uf0eb'
+    else:
+        moon_icon = chr(0xf0cf + sh_visual_index)
+    
+    # The text label remains true to the astronomical phase
     if icon_index == 0: name = 'New Moon'
     elif 1 <= icon_index <= 6: name = 'Waxing Crescent'
     elif icon_index == 7: name = 'First Quarter'
