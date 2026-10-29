@@ -185,15 +185,26 @@ def get_weather_icon(wmo_code):
 
 def get_moon_phase(date_obj):
     new_moon = datetime.date(2000, 1, 6)
-    phase_ratio = ((date_obj - new_moon).days % 29.53058867) / 29.53058867
-    if phase_ratio < 0.03 or phase_ratio > 0.97: return ('New Moon', '\uf0eb')
-    elif phase_ratio < 0.22: return ('Waxing Crescent', '\uf0db')
-    elif phase_ratio < 0.28: return ('First Quarter', '\uf09c')
-    elif phase_ratio < 0.47: return ('Waxing Gibbous', '\uf0e0')
-    elif phase_ratio < 0.53: return ('Full Moon', '\uf0a3')
-    elif phase_ratio < 0.72: return ('Waning Gibbous', '\uf0e5')
-    elif phase_ratio < 0.78: return ('Last Quarter', '\uf0aa')
-    else: return ('Waning Crescent', '\uf0ea')
+    
+    # Calculate exact days into the 29.53-day cycle
+    lunar_days = (date_obj - new_moon).days % 29.53058867
+    
+    # Map the cycle to the 28 icon buckets (0 to 27)
+    icon_index = int(round((lunar_days / 29.53058867) * 28)) % 28
+    
+    # The primary moon set in weather-icons is perfectly sequential from \uf095 to \uf0b0
+    moon_icon = chr(0xf095 + icon_index)
+    
+    if icon_index == 0: name = 'New Moon'
+    elif 1 <= icon_index <= 6: name = 'Waxing Crescent'
+    elif icon_index == 7: name = 'First Quarter'
+    elif 8 <= icon_index <= 13: name = 'Waxing Gibbous'
+    elif icon_index == 14: name = 'Full Moon'
+    elif 15 <= icon_index <= 20: name = 'Waning Gibbous'
+    elif icon_index == 21: name = 'Last Quarter'
+    else: name = 'Waning Crescent'
+    
+    return (name, moon_icon)
 
 def load_font(filename, size):
     try: return ImageFont.truetype(f"font/{filename}", size)
@@ -308,8 +319,8 @@ if bom:
     draw.text((417, 355), f"Dawn: {bom['first_light']} • Rise: {bom['sunrise']} • Set: {bom['sunset']} • Dusk: {bom['last_light']}", font=font_tiny, fill=C_BLACK)
     
     moon_name, moon_icon = get_moon_phase(now_wa.date())
-    draw.text((417, 369), moon_icon, font=font_wi_small, fill=C_ORANGE)
-    draw.text((455, 375), f"Moon: {moon_name}", font=font_tiny, fill=C_ORANGE)
+    draw.text((417, 369), moon_icon, font=font_wi_small, fill=C_BLACK)
+    draw.text((455, 375), f"Moon: {moon_name}", font=font_tiny, fill=C_BLACK)
 
     # 5-Day Strip
     col_width = (WIDTH - 12 - 406) / 5
