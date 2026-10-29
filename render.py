@@ -136,18 +136,16 @@ def get_balingup_bom():
         daily = res["daily"]
         dates = [datetime.datetime.strptime(d, "%Y-%m-%d").date() for d in daily["time"]]
         
-        def fmt_time(iso, delta=0):
+        def fmt_time(iso):
             if not iso: return "--:--"
-            return (datetime.datetime.fromisoformat(iso) + datetime.timedelta(minutes=delta)).strftime("%I:%M %p").lstrip('0')
+            return datetime.datetime.fromisoformat(iso).strftime("%I:%M %p").lstrip('0')
 
         return {
             "yesterday_high": round(daily["temperature_2m_max"][0]),
             "overnight_low": round(daily["temperature_2m_min"][1]),
             "today_date": dates[1],
-            "first_light": fmt_time(daily["sunrise"][1], -26),
             "sunrise": fmt_time(daily["sunrise"][1]),
             "sunset": fmt_time(daily["sunset"][1]),
-            "last_light": fmt_time(daily["sunset"][1], 26),
             "today": {
                 "code": daily["weathercode"][1],
                 "max": round(daily["temperature_2m_max"][1]),
@@ -162,24 +160,25 @@ def get_balingup_bom():
                 "rain_prob": daily.get("precipitation_probability_max", [0]*8)[2] or 0,
                 "rain_sum": daily.get("precipitation_sum", [0]*8)[2] or 0.0,
             },
-            "next_5_days": [{
+            # Limited to 4 days to allow for bigger font size
+            "next_4_days": [{
                 "day_name": dates[i].strftime("%a").capitalize(), 
                 "code": daily["weathercode"][i],
                 "max": round(daily["temperature_2m_max"][i]),
                 "min": round(daily["temperature_2m_min"][i]),
                 "rain": daily.get("precipitation_sum", [0]*8)[i] or 0.0
-            } for i in range(3, min(8, len(dates)))]
+            } for i in range(3, min(7, len(dates)))]
         }
     except: return None
 
 # --- 4. ASSET LOADERS ---
 def get_weather_icon(wmo_code):
-    if wmo_code in [0, 1]: return ("\uf00d", C_YELLOW) # Sunny
-    elif wmo_code in [2, 3]: return ("\uf013", C_BLACK) # Cloudy
-    elif wmo_code in [45, 48]: return ("\uf014", C_BLACK) # Fog
-    elif wmo_code in [51, 53, 55, 56, 57, 61, 63, 65, 66, 67, 80, 81, 82]: return ("\uf019", C_BLUE) # Rain
-    elif wmo_code in [71, 73, 75, 77, 85, 86]: return ("\uf01b", C_BLUE) # Snow/Hail
-    elif wmo_code in [95, 96, 99]: return ("\uf01e", C_RED) # Thunderstorm
+    if wmo_code in [0, 1]: return ("\uf00d", C_YELLOW)
+    elif wmo_code in [2, 3]: return ("\uf013", C_BLACK)
+    elif wmo_code in [45, 48]: return ("\uf014", C_BLACK)
+    elif wmo_code in [51, 53, 55, 56, 57, 61, 63, 65, 66, 67, 80, 81, 82]: return ("\uf019", C_BLUE)
+    elif wmo_code in [71, 73, 75, 77, 85, 86]: return ("\uf01b", C_BLUE)
+    elif wmo_code in [95, 96, 99]: return ("\uf01e", C_RED)
     return ("\uf00d", C_YELLOW)
 
 def get_moon_phase(date_obj):
@@ -206,15 +205,13 @@ def load_font(filename, size):
     try: return ImageFont.truetype(f"font/{filename}", size)
     except: return ImageFont.load_default()
 
-font_hero       = load_font("Amazon Ember Bold.ttf", 44)
-font_title      = load_font("Amazon Ember Bold.ttf", 18)
-font_body       = load_font("Amazon Ember.ttf", 16)
-font_body_bold  = load_font("Amazon Ember Bold.ttf", 16)
-font_small      = load_font("Amazon Ember.ttf", 14)
-font_small_bold = load_font("Amazon Ember Bold.ttf", 14)
-font_tiny       = load_font("Amazon Ember Bold.ttf", 13)
-font_wi_large   = load_font("weathericons-regular-webfont.ttf", 38)
-font_wi_small   = load_font("weathericons-regular-webfont.ttf", 26)
+# ENFORCING MINIMUM SIZE 18 FOR READABILITY ON 7-COLOR E-PAPER
+font_hero       = load_font("Amazon Ember Bold.ttf", 46)
+font_title      = load_font("Amazon Ember Bold.ttf", 20)
+font_body       = load_font("Amazon Ember.ttf", 18)
+font_body_bold  = load_font("Amazon Ember Bold.ttf", 18)
+font_wi_large   = load_font("weathericons-regular-webfont.ttf", 42)
+font_wi_small   = load_font("weathericons-regular-webfont.ttf", 34)
 
 # --- 5. RENDER CANVAS ---
 img = Image.new('RGB', (WIDTH, HEIGHT), C_WHITE)
@@ -229,11 +226,11 @@ now_wa = datetime.datetime.now(tz_wa)
 
 # --- HEADER BAR ---
 draw.rounded_rectangle([(12, 10), (WIDTH - 12, 48)], radius=14, fill=C_WHITE, outline=C_BLACK, width=2)
-draw.text((26, 17), now_wa.strftime("%A, %d %B %Y"), font=font_title, fill=C_BLACK)
-draw.text((WIDTH - 200, 21), f"Updated {now_wa.strftime('%I:%M %p').lstrip('0')}", font=font_small, fill=C_BLACK)
+draw.text((26, 15), now_wa.strftime("%A, %d %B %Y"), font=font_title, fill=C_BLACK)
+draw.text((WIDTH - 200, 16), f"Updated {now_wa.strftime('%I:%M %p').lstrip('0')}", font=font_body, fill=C_BLACK)
 
-if now_wa.month == 10 and now_wa.day == 31: draw.text((380, 18), "🎃", font=font_title, fill=C_ORANGE)
-elif now_wa.month == 12 and now_wa.day >= 24: draw.text((380, 18), "🎄", font=font_title, fill=C_GREEN)
+if now_wa.month == 10 and now_wa.day == 31: draw.text((380, 16), "🎃", font=font_title, fill=C_ORANGE)
+elif now_wa.month == 12 and now_wa.day >= 24: draw.text((380, 16), "🎄", font=font_title, fill=C_GREEN)
 
 # --- LEFT COLUMN: AGENDA ---
 draw.rounded_rectangle([(12, 58), (370, 335)], radius=16, fill=C_WHITE, outline=C_BLACK, width=2)
@@ -241,36 +238,36 @@ draw.text((26, 68), "Today", font=font_title, fill=C_BLACK)
 
 y_cursor = 100
 if today_events:
-    for _, t_str, summ, e_color in today_events[:4]:
-        draw.ellipse([26, y_cursor + 4, 34, y_cursor + 12], fill=e_color)
+    for _, t_str, summ, e_color in today_events[:3]: # Limited to 3 to accommodate larger text
+        draw.ellipse([26, y_cursor + 5, 34, y_cursor + 13], fill=e_color)
         label = summ if not t_str else f"{t_str} - {summ}"
-        draw.text((42, y_cursor), label[:32] + "..." if len(label) > 34 else label, font=font_body, fill=C_BLACK)
-        y_cursor += 24
+        draw.text((42, y_cursor), label[:28] + "..." if len(label) > 30 else label, font=font_body, fill=C_BLACK)
+        y_cursor += 28
 else:
     draw.text((28, y_cursor), "No events scheduled today", font=font_body, fill=C_BLACK)
-    y_cursor += 24
+    y_cursor += 28
 
 y_cursor = max(y_cursor + 12, 192)
 draw.text((26, y_cursor), "Tomorrow", font=font_title, fill=C_BLACK)
 y_cursor += 32
 if tomorrow_events:
-    for _, t_str, summ, e_color in tomorrow_events[:4]:
-        draw.ellipse([26, y_cursor + 4, 34, y_cursor + 12], fill=e_color)
+    for _, t_str, summ, e_color in tomorrow_events[:3]:
+        draw.ellipse([26, y_cursor + 5, 34, y_cursor + 13], fill=e_color)
         label = summ if not t_str else f"{t_str} - {summ}"
-        draw.text((42, y_cursor), label[:32] + "..." if len(label) > 34 else label, font=font_body, fill=C_BLACK)
-        y_cursor += 24
+        draw.text((42, y_cursor), label[:28] + "..." if len(label) > 30 else label, font=font_body, fill=C_BLACK)
+        y_cursor += 28
 else:
     draw.text((28, y_cursor), "No events scheduled tomorrow", font=font_body, fill=C_BLACK)
 
 draw.rounded_rectangle([(12, 345), (370, 468)], radius=16, fill=C_WHITE, outline=C_BLACK, width=2)
 draw.text((26, 355), "Looking Ahead", font=font_title, fill=C_BLACK)
-y_ahead = 388
+y_ahead = 392
 if later_events:
-    for d, t_str, summ, e_color in later_events[:3]:
-        draw.ellipse([26, y_ahead + 4, 34, y_ahead + 12], fill=e_color)
+    for d, t_str, summ, e_color in later_events[:2]:
+        draw.ellipse([26, y_ahead + 5, 34, y_ahead + 13], fill=e_color)
         draw.text((42, y_ahead), d.strftime("%a %d"), font=font_body_bold, fill=C_BLACK)
-        draw.text((110, y_ahead), summ[:24] + "..." if len(summ) > 26 else summ, font=font_body, fill=C_BLACK)
-        y_ahead += 24
+        draw.text((114, y_ahead), summ[:22] + "..." if len(summ) > 24 else summ, font=font_body, fill=C_BLACK)
+        y_ahead += 28
 else:
     draw.text((28, y_ahead), "No upcoming events this week.", font=font_body, fill=C_BLACK)
 
@@ -280,46 +277,40 @@ draw.rounded_rectangle([(382, 58), (WIDTH - 12, 468)], radius=16, fill=C_WHITE, 
 draw.text((396, 68), "Weather Station", font=font_title, fill=C_BLACK)
 
 if ecowitt:
-    draw.text((396, 94), f"{ecowitt['temp_c']}°", font=font_hero, fill=C_BLACK)
-    draw.text((550, 110), f"Humidity: {ecowitt['humidity']}%", font=font_body, fill=C_BLACK)
-    if bom: draw.text((396, 146), f"Yesterday High: {bom['yesterday_high']}°C  |  Low: {bom['overnight_low']}°C", font=font_body, fill=C_BLACK)
-    
-    draw.text((396, 172), f"Rain 24h: {ecowitt['rain_24h']} mm   |   Event: {ecowitt['rain_event']} mm", font=font_body, fill=C_BLACK)
+    draw.text((396, 96), f"{ecowitt['temp_c']}°", font=font_hero, fill=C_BLACK)
+    draw.text((550, 114), f"Humidity: {ecowitt['humidity']}%", font=font_body, fill=C_BLACK)
+    draw.text((396, 150), f"Yesterday High: {bom['yesterday_high']}°C  |  Low: {bom['overnight_low']}°C" if bom else "", font=font_body, fill=C_BLACK)
+    draw.text((396, 176), f"Rain 24h: {ecowitt['rain_24h']} mm   |   Event: {ecowitt['rain_event']} mm", font=font_body, fill=C_BLACK)
 else:
-    draw.text((396, 110), "Sensors connecting...", font=font_body, fill=C_BLACK)
+    draw.text((396, 114), "Sensors connecting...", font=font_body, fill=C_BLACK)
 
-draw.line([(396, 204), (774, 204)], fill=C_BLACK, width=2)
-draw.text((396, 214), "Balingup Weather Forecast", font=font_title, fill=C_BLACK)
+draw.line([(396, 206), (774, 206)], fill=C_BLACK, width=2)
+draw.text((396, 216), "Balingup Weather Forecast", font=font_title, fill=C_BLACK)
 
 if bom:
-    # Lifted icon Y to counteract font padding
     t_icon, t_color = get_weather_icon(bom["today"]["code"])
-    draw.text((396, 226), t_icon, font=font_wi_large, fill=t_color) 
-    draw.text((452, 238), f"Today  Max {bom['today']['max']}° | Min {bom['today']['min']}°", font=font_body_bold, fill=C_BLACK)
-    draw.text((452, 258), f"Rain: {bom['today']['rain_sum']}mm | {bom['today']['rain_prob']}%", font=font_small, fill=C_BLACK)
+    draw.text((396, 238), t_icon, font=font_wi_large, fill=t_color) 
+    draw.text((452, 246), f"Today  Max {bom['today']['max']}° | Min {bom['today']['min']}°", font=font_body_bold, fill=C_BLACK)
+    draw.text((452, 268), f"Rain: {bom['today']['rain_sum']}mm | {bom['today']['rain_prob']}%", font=font_body, fill=C_BLACK)
 
     tm_icon, tm_color = get_weather_icon(bom["tomorrow"]["code"])
-    draw.text((396, 274), tm_icon, font=font_wi_large, fill=tm_color)
-    draw.text((452, 286), f"Tomorrow  Max {bom['tomorrow']['max']}° | Min {bom['tomorrow']['min']}°", font=font_body_bold, fill=C_BLACK)
-    draw.text((452, 306), f"Rain: {bom['tomorrow']['rain_sum']}mm | {bom['tomorrow']['rain_prob']}%", font=font_small, fill=C_BLACK)
+    draw.text((396, 292), tm_icon, font=font_wi_large, fill=tm_color)
+    draw.text((452, 300), f"Tomorrow  Max {bom['tomorrow']['max']}° | Min {bom['tomorrow']['min']}°", font=font_body_bold, fill=C_BLACK)
+    draw.text((452, 322), f"Rain: {bom['tomorrow']['rain_sum']}mm | {bom['tomorrow']['rain_prob']}%", font=font_body, fill=C_BLACK)
 
-    draw.text((396, 340), f"Dawn: {bom['first_light']}  •  Rise: {bom['sunrise']}", font=font_small, fill=C_BLACK)
-    draw.text((396, 360), f"Set: {bom['sunset']}  •  Dusk: {bom['last_light']}", font=font_small, fill=C_BLACK)
+    draw.text((396, 356), f"Sunrise: {bom['sunrise']}  •  Sunset: {bom['sunset']}", font=font_body, fill=C_BLACK)
     
     moon_name, moon_icon = get_moon_phase(now_wa.date())
-    draw.text((610, 328), moon_icon, font=font_wi_large, fill=C_BLACK)
-    draw.text((660, 340), "Moon:", font=font_small_bold, fill=C_BLACK)
-    draw.text((660, 360), moon_name, font=font_small, fill=C_BLACK)
+    draw.text((396, 374), moon_icon, font=font_wi_small, fill=C_BLACK)
+    draw.text((440, 382), f"Moon: {moon_name}", font=font_body, fill=C_BLACK)
 
-    # Lifted 5-day strip up by 14px to clear bottom border
-    col_width = (WIDTH - 12 - 382) / 5
-    for i, item in enumerate(bom.get("next_5_days", [])):
+    # 4-Day Strip (Spaced for size 18 fonts)
+    col_width = (WIDTH - 12 - 382) / 4
+    for i, item in enumerate(bom.get("next_4_days", [])):
         center_x = 382 + (i * col_width) + (col_width / 2)
         n_icon, n_color = get_weather_icon(item["code"])
-        draw.text((center_x - 16, 384), n_icon, font=font_wi_small, fill=n_color)
-        draw.text((center_x - 12, 418), item["day_name"], font=font_tiny, fill=C_BLACK)
-        draw.text((center_x - 18, 432), f"{item['max']}°|{item['min']}°", font=font_tiny, fill=C_BLACK)
-        draw.text((center_x - 16, 446), f"{item['rain']}mm", font=font_tiny, fill=C_BLACK)
+        draw.text((center_x - 18, 412), n_icon, font=font_wi_small, fill=n_color)
+        draw.text((center_x - 16, 442), f"{item['day_name']}  {item['max']}°", font=font_body_bold, fill=C_BLACK)
 
 img.save("dashboard.png", "PNG", optimize=True)
-log("Re-aligned typography dashboard generated successfully!")
+log("Big Font readability dashboard generated successfully!")
