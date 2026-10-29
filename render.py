@@ -223,7 +223,7 @@ now_wa = datetime.datetime.now(tz_wa)
 # --- HEADER BAR ---
 draw.rounded_rectangle([(12, 10), (WIDTH - 12, 48)], radius=14, fill=C_WHITE, outline=C_BLACK, width=2)
 draw.text((26, 17), now_wa.strftime("%A, %d %B %Y"), font=font_title, fill=C_BLACK)
-draw.text((WIDTH - 150, 21), f"Updated {now_wa.strftime('%I:%M %p').lstrip('0')}", font=font_small, fill=C_BLACK)
+draw.text((WIDTH - 200, 21), f"Updated {now_wa.strftime('%I:%M %p').lstrip('0')}", font=font_small, fill=C_BLACK)
 
 if now_wa.month == 10 and now_wa.day == 31: draw.text((380, 18), "🎃", font=font_title, fill=C_ORANGE)
 elif now_wa.month == 12 and now_wa.day >= 24: draw.text((380, 18), "🎄", font=font_title, fill=C_GREEN)
