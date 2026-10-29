@@ -284,21 +284,23 @@ draw.text((396, 68), "Weather Station", font=font_title, fill=C_BLACK)
 if ecowitt:
     draw.text((396, 94), f"{ecowitt['temp_c']}°", font=font_hero, fill=C_BLACK)
     draw.text((550, 110), f"Humidity: {ecowitt['humidity']}%", font=font_body, fill=C_BLACK)
-    if bom: draw.text((396, 146), f"Yesterday High: {bom['yesterday_high']}°C  |  Low: {bom['overnight_low']}°C", font=font_small, fill=C_BLACK)
+    if bom: draw.text((396, 146), f"Yesterday High: {bom['yesterday_high']}°C  |  Low: {bom['overnight_low']}°C", font=font_body, fill=C_BLACK)
     
-    draw.line([(396, 166), (774, 166)], fill=C_BLACK, width=1)
-    draw.text((396, 176), f"Rain 24h: {ecowitt['rain_24h']} mm   |   Event: {ecowitt['rain_event']} mm", font=font_body, fill=C_BLACK)
+    draw.text((396, 172), f"Rain 24h: {ecowitt['rain_24h']} mm   |   Event: {ecowitt['rain_event']} mm", font=font_body, fill=C_BLACK)
 else:
     draw.text((396, 110), "Sensors connecting...", font=font_body, fill=C_BLACK)
+
+# Shifted Divider
+draw.line([(396, 204), (774, 204)], fill=C_BLACK, width=2)
 
 # Balingup Forecast Section
 draw.text((396, 214), "Balingup Weather Forecast", font=font_title, fill=C_BLACK)
 
 if bom:
     t_icon, t_color = get_weather_icon(bom["today"]["code"])
-    draw.text((396, 240), t_icon, font=font_wi_large, fill=t_color)
-    draw.text((452, 242), f"Today  Max {bom['today']['max']}° | Min {bom['today']['min']}°", font=font_body_bold, fill=C_BLACK)
-    draw.text((452, 262), f"Rain: {bom['today']['rain_sum']}mm | {bom['today']['rain_prob']}%", font=font_small, fill=C_BLACK)
+    draw.text((396, 238), t_icon, font=font_wi_large, fill=t_color)
+    draw.text((452, 240), f"Today  Max {bom['today']['max']}° | Min {bom['today']['min']}°", font=font_body_bold, fill=C_BLACK)
+    draw.text((452, 260), f"Rain: {bom['today']['rain_sum']}mm | {bom['today']['rain_prob']}%", font=font_small, fill=C_BLACK)
 
     tm_icon, tm_color = get_weather_icon(bom["tomorrow"]["code"])
     draw.text((396, 286), tm_icon, font=font_wi_large, fill=tm_color)
@@ -306,23 +308,23 @@ if bom:
     draw.text((452, 308), f"Rain: {bom['tomorrow']['rain_sum']}mm | {bom['tomorrow']['rain_prob']}%", font=font_small, fill=C_BLACK)
 
     # 2x2 Solar and Moon Grid
-    draw.text((396, 340), f"Dawn: {bom['first_light']}  •  Rise: {bom['sunrise']}", font=font_small, fill=C_BLACK)
-    draw.text((396, 360), f"Set: {bom['sunset']}  •  Dusk: {bom['last_light']}", font=font_small, fill=C_BLACK)
+    draw.text((396, 344), f"Dawn: {bom['first_light']}  •  Rise: {bom['sunrise']}", font=font_small, fill=C_BLACK)
+    draw.text((396, 364), f"Set: {bom['sunset']}  •  Dusk: {bom['last_light']}", font=font_small, fill=C_BLACK)
     
     moon_name, moon_icon = get_moon_phase(now_wa.date())
     draw.text((610, 340), moon_icon, font=font_wi_large, fill=C_BLACK)
-    draw.text((660, 340), "Moon:", font=font_small_bold, fill=C_BLACK)
-    draw.text((660, 360), moon_name, font=font_small, fill=C_BLACK)
+    draw.text((660, 344), "Moon:", font=font_small_bold, fill=C_BLACK)
+    draw.text((660, 364), moon_name, font=font_small, fill=C_BLACK)
 
-    # 5-Day Strip
+    # 5-Day Strip (Moved down and spaced out)
     col_width = (WIDTH - 12 - 382) / 5
     for i, item in enumerate(bom.get("next_5_days", [])):
         center_x = 382 + (i * col_width) + (col_width / 2)
         n_icon, n_color = get_weather_icon(item["code"])
         draw.text((center_x - 16, 396), n_icon, font=font_wi_small, fill=n_color)
-        draw.text((center_x - 12, 428), item["day_name"], font=font_tiny, fill=C_BLACK)
-        draw.text((center_x - 18, 440), f"{item['max']}°|{item['min']}°", font=font_tiny, fill=C_BLACK)
-        draw.text((center_x - 16, 452), f"{item['rain']}mm", font=font_tiny, fill=C_BLACK)
+        draw.text((center_x - 12, 432), item["day_name"], font=font_tiny, fill=C_BLACK)
+        draw.text((center_x - 18, 446), f"{item['max']}°|{item['min']}°", font=font_tiny, fill=C_BLACK)
+        draw.text((center_x - 16, 460), f"{item['rain']}mm", font=font_tiny, fill=C_BLACK)
 
 img.save("dashboard.png", "PNG", optimize=True)
-log("Clean, unboxed typography dashboard generated successfully!")
+log("Re-aligned typography dashboard generated successfully!")
