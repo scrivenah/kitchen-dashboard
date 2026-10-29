@@ -3,7 +3,7 @@ name: Update Dashboard
 on:
   workflow_dispatch:
   schedule:
-    - cron: '*/15 * * * *'  # Runs every 15 minutes
+    - cron: '*/15 * * * *' # Runs every 15 minutes
 
 jobs:
   render:
@@ -22,20 +22,18 @@ jobs:
 
       - name: Install dependencies
         run: |
-          pip install requests icalendar python-dateutil playwright Pillow
-          playwright install --with-deps chromium
+          pip install -r requirements.txt
 
-      - name: Render dashboard with Playwright
+      - name: Render dashboard
         env:
           CALENDAR_ICS_URLS: ${{ secrets.CALENDAR_ICS_URLS }}
           ECOWITT_APPLICATION_KEY: ${{ secrets.ECOWITT_APPLICATION_KEY }}
           ECOWITT_API_KEY: ${{ secrets.ECOWITT_API_KEY }}
           ECOWITT_MAC: ${{ secrets.ECOWITT_MAC }}
-        run: python render_playwright.py
+        run: python render.py
 
       - name: Commit and push updated dashboard
-        run: |
-          git config --local user.email "github-actions[bot]@users.noreply.github.com"
-          git config --local user.name "github-actions[bot]"
-          git add dashboard.png
-          git diff --staged --quiet || (git commit -m "Update dashboard preview [skip ci]" && git push)
+        uses: stefanzweifel/git-auto-commit-action@v5
+        with:
+          commit_message: "Update dashboard preview [skip ci]"
+          file_pattern: "dashboard.png"
