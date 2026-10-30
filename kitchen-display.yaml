@@ -60,6 +60,8 @@ sensor:
     id: battery_v
     update_interval: 60s
     attenuation: 11db
+    filters:
+      - multiply: 2.0
 
 spi:
   clk_pin: GPIO7
@@ -86,7 +88,7 @@ display:
       
       // 2. Stamp the battery over the top right corner
       if (id(battery_v).has_state()) {
-        it.printf(780, 20, id(font_battery), TextAlign::TOP_RIGHT, "%.1fV", id(battery_v).state);
+        it.printf(780, 20, id(font_battery), Color(0,0,0), TextAlign::TOP_RIGHT, "%.1fV", id(battery_v).state);
       } else {
-        it.printf(780, 20, id(font_battery), TextAlign::TOP_RIGHT, "--V");
+        it.printf(780, 20, id(font_battery), Color(0,0,0), TextAlign::TOP_RIGHT, "--V");
       }
