@@ -2,6 +2,7 @@ import os
 import requests
 import datetime
 from dateutil import rrule as drrule
+from dateutil.easter import easter
 from icalendar import Calendar
 from PIL import Image, ImageDraw, ImageFont
 
@@ -18,6 +19,39 @@ C_GREEN  = (0, 255, 0)
 C_BLUE   = (0, 0, 255)
 C_YELLOW = (255, 255, 0)
 C_ORANGE = (255, 128, 0)
+
+# --- EASTER EGG ENGINE (Text Only, No Emojis) ---
+def get_easter_egg(dt):
+    m, d = dt.month, dt.day
+    wd = dt.weekday() # 0=Monday, 6=Sunday
+    
+    # Fixed dates
+    if (m, d) == (1, 1): return "Happy New Year!", C_BLUE
+    if (m, d) == (2, 5): return "Happy Birthday!", C_RED
+    if (m, d) == (2, 15): return "Happy Anniversary!", C_RED
+    if (m, d) == (3, 29): return "Happy Birthday!", C_RED
+    if (m, d) == (4, 3): return "Happy Birthday!", C_RED
+    if (m, d) == (7, 30): return "Happy Birthday!", C_RED
+    if (m, d) == (9, 1): return "Spring Begins", C_GREEN
+    if (m, d) == (10, 31): return "Happy Halloween!", C_ORANGE
+    if (m, d) == (12, 21): return "Summer Solstice", C_YELLOW
+    if (m, d) == (6, 21): return "Winter Solstice", C_BLUE
+    if (m, d) == (12, 24): return "Christmas Eve", C_GREEN
+    if (m, d) == (12, 25): return "Merry Christmas!", C_RED
+    if (m, d) == (12, 26): return "Boxing Day", C_ORANGE
+    if (m, d) == (12, 31): return "New Year's Eve", C_ORANGE
+    
+    # Floating Australian holidays
+    if m == 5 and wd == 6 and 8 <= d <= 14: return "Mother's Day", C_RED
+    if m == 9 and wd == 6 and 1 <= d <= 7: return "Father's Day", C_BLUE
+    if m == 6 and wd == 0 and 1 <= d <= 7: return "WA Day", C_YELLOW
+    
+    # Easter Sunday
+    try:
+        if dt.date() == easter(dt.year): return "Happy Easter!", C_ORANGE
+    except: pass
+    
+    return None, None
 
 # --- 1. CALENDAR FETCHER ---
 def get_calendar_events():
@@ -204,7 +238,6 @@ def load_font(filename, size):
     try: return ImageFont.truetype(f"font/{filename}", size)
     except: return ImageFont.load_default()
 
-# ENFORCING MINIMUM SIZE 18 FOR READABILITY
 font_hero       = load_font("Amazon Ember Bold.ttf", 46)
 font_title      = load_font("Amazon Ember Bold.ttf", 20)
 font_body       = load_font("Amazon Ember.ttf", 18)
@@ -228,9 +261,6 @@ now_wa = datetime.datetime.now(tz_wa)
 draw.rounded_rectangle([(12, 10), (WIDTH - 12, 48)], radius=14, fill=C_WHITE, outline=C_BLACK, width=2)
 draw.text((26, 15), now_wa.strftime("%A, %d %B %Y"), font=font_title, fill=C_BLACK)
 draw.text((WIDTH - 200, 16), f"Updated {now_wa.strftime('%I:%M %p').lstrip('0')}", font=font_body, fill=C_BLACK)
-
-if now_wa.month == 10 and now_wa.day == 31: draw.text((380, 16), "🎃", font=font_title, fill=C_ORANGE)
-elif now_wa.month == 12 and now_wa.day >= 24: draw.text((380, 16), "🎄", font=font_title, fill=C_GREEN)
 
 # --- LEFT COLUMN: AGENDA ---
 draw.rounded_rectangle([(12, 58), (342, 335)], radius=16, fill=C_WHITE, outline=C_BLACK, width=2)
@@ -271,30 +301,25 @@ if later_events:
 else:
     draw.text((28, y_ahead), "No upcoming events this week.", font=font_body, fill=C_BLACK)
 
-
 # --- RIGHT COLUMN: WEATHER ---
 draw.rounded_rectangle([(354, 58), (WIDTH - 12, 468)], radius=16, fill=C_WHITE, outline=C_BLACK, width=2)
 
 draw.text((368, 68), "Weather Station", font=font_title, fill=C_BLACK)
 
 if ecowitt:
-    # Lifted Temp and Humidity to same row as title
     draw.text((550, 54), f"{ecowitt['temp_c']}°", font=font_hero, fill=C_BLACK)
     draw.text((690, 78), "\uf07a", font=font_wi_body, fill=C_BLACK)
     draw.text((714, 78), f"{ecowitt['humidity']}%", font=font_body, fill=C_BLACK)
     
-    # Lifted secondary weather stats
     draw.text((368, 110), f"Yesterday: {bom['yesterday_high']}° | {bom['overnight_low']}°" if bom else "", font=font_body, fill=C_BLACK)
     draw.text((368, 136), f"Rain 24h: {ecowitt['rain_24h']}mm   |   Event: {ecowitt['rain_event']}mm", font=font_body, fill=C_BLACK)
 else:
     draw.text((368, 110), "Sensors connecting...", font=font_body, fill=C_BLACK)
 
-# Lifted Divider
 draw.line([(368, 164), (774, 164)], fill=C_BLACK, width=2)
 draw.text((368, 174), "Balingup Weather Forecast", font=font_title, fill=C_BLACK)
 
 if bom:
-    # Lifted entire BOM forecast block
     t_icon, t_color = get_weather_icon(bom["today"]["code"])
     draw.text((368, 196), t_icon, font=font_wi_large, fill=t_color) 
     draw.text((430, 206), f"Today  Max {bom['today']['max']}° | Min {bom['today']['min']}°", font=font_body_bold, fill=C_BLACK)
@@ -313,7 +338,12 @@ if bom:
     draw.text((510, 286), "\uf078", font=font_wi_body, fill=C_BLUE) 
     draw.text((530, 286), f"{bom['tomorrow']['rain_sum']}mm", font=font_body, fill=C_BLACK)
 
-    # Sun & Moon (Shifted left to prevent text spilling over right boundary)
+    # --- EASTER EGG INJECTION ---
+    egg_text, egg_color = get_easter_egg(now_wa)
+    if egg_text:
+        draw.text((680, 240), egg_text, font=font_body_bold, fill=egg_color, anchor="mm")
+
+    # Sun & Moon
     draw.text((368, 330), "\uf051", font=font_wi_body, fill=C_BLACK)
     draw.text((394, 330), bom['sunrise'], font=font_body, fill=C_BLACK)
     draw.text((478, 330), "\uf052", font=font_wi_body, fill=C_BLACK)
@@ -323,7 +353,7 @@ if bom:
     draw.text((590, 318), moon_icon, font=font_wi_small, fill=C_BLACK)
     draw.text((634, 330), moon_name, font=font_body, fill=C_BLACK)
 
-    # 5-Day Strip (Shifted safely above bottom margin)
+    # 5-Day Strip
     col_width = (WIDTH - 12 - 354) / 5
     for i, item in enumerate(bom.get("next_5_days", [])):
         cx = 354 + (i * col_width) + (col_width / 2)
@@ -334,5 +364,22 @@ if bom:
         draw.text((cx, 426), f"{item['max']}°|{item['min']}°", font=font_body, fill=C_BLACK, anchor="mt")
         draw.text((cx, 448), f"{item['rain']}mm", font=font_body, fill=C_BLACK, anchor="mt")
 
+# --- NO-DITHER QUANTIZATION TO FIX TEXT FUZZINESS ---
+pal_img = Image.new("P", (1, 1))
+pal = [
+    255, 255, 255,  # 0: White
+    0, 0, 0,        # 1: Black
+    255, 0, 0,      # 2: Red
+    0, 255, 0,      # 3: Green
+    0, 0, 255,      # 4: Blue
+    255, 255, 0,    # 5: Yellow
+    255, 128, 0     # 6: Orange
+]
+pal += [0] * (768 - len(pal))
+pal_img.putpalette(pal)
+
+# This forces every pixel to snap to a pure palette color, killing the gray edge pixels
+img = img.quantize(palette=pal_img, dither=Image.Dither.NONE)
+
 img.save("dashboard.png", "PNG", optimize=True)
-log("Final, tightly bounded readability layout generated successfully!")
+log("Non-dithered crisp text dashboard generated successfully!")
