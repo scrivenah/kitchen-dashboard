@@ -58,11 +58,11 @@ title = recipe_data.get("title", "Recipe").upper()
 ingredients = recipe_data.get("ingredients", [])
 steps = recipe_data.get("steps", [])
 
-# Header (Shrunk vertically to buy back space)
+# Header
 draw.rounded_rectangle([(12, 10), (WIDTH - 12, 44)], radius=12, fill=C_WHITE, outline=C_BLACK, width=2)
 draw.text((26, 16), title[:60] + "..." if len(title) > 60 else title, font=font_title, fill=C_BLACK)
 
-# Left Column: Ingredients (Shifted up)
+# Left Column: Ingredients
 draw.rounded_rectangle([(12, 54), (300, 468)], radius=16, fill=C_WHITE, outline=C_BLACK, width=2)
 draw.text((26, 64), "Ingredients", font=font_title, fill=C_BLACK)
 
@@ -75,7 +75,7 @@ for item in ingredients[:12]:
             y_cursor += 22 
     y_cursor += 8
 
-# Right Column: Method (Shifted up)
+# Right Column: Method
 draw.rounded_rectangle([(312, 54), (WIDTH - 12, 468)], radius=16, fill=C_WHITE, outline=C_BLACK, width=2)
 draw.text((326, 64), "Method", font=font_title, fill=C_BLACK)
 
@@ -88,22 +88,9 @@ for i, step in enumerate(steps[:7]):
             y_cursor += 22 
     y_cursor += 12
 
-# --- 4. NO-DITHER QUANTIZATION ---
-pal_img = Image.new("P", (1, 1))
-pal = [
-    255, 255, 255,  # 0: White
-    0, 0, 0,        # 1: Black
-    255, 0, 0,      # 2: Red
-    0, 255, 0,      # 3: Green
-    0, 0, 255,      # 4: Blue
-    255, 255, 0,    # 5: Yellow
-    255, 128, 0     # 6: Orange
-]
-pal += [0] * (768 - len(pal))
-pal_img.putpalette(pal)
-
-# Forces pure palette colors to kill fuzzy gray edge pixels
-img = img.quantize(palette=pal_img, dither=0)
+# --- 4. STRICT B&W THRESHOLD TO FIX BLEED ---
+# Kills all anti-aliased gray pixels so they don't map to orange/yellow in the color palette
+img = img.convert("L").point(lambda x: 0 if x < 200 else 255, mode="1").convert("RGB")
 
 img.save("recipe.png", "PNG", optimize=True)
-log("Compact recipe card generated successfully!")
+log("Crisp B&W recipe card generated successfully!")
