@@ -105,5 +105,5 @@ pal_img.putpalette(pal)
 # Forces pure palette colors to kill fuzzy gray edge pixels
 img = img.quantize(palette=pal_img, dither=0)
 
-img.save("recipe1.png", "PNG", optimize=True)
+img.save("recipe.png", "PNG", optimize=True)
 log("Crisp recipe card generated successfully!")
