@@ -34,7 +34,7 @@ def get_easter_egg(dt):
     if (m, d) == (7, 30): return "Happy Birthday!", C_RED
     if (m, d) == (9, 1): return "Spring Begins", C_GREEN
     if (m, d) == (10, 31): return "Happy Halloween!", C_ORANGE
-    if (m, d) == (12, 21): return "Summer Solstice", C_YELLOW
+    if (m, d) == (12, 21): return "Summer Solstice", C_BLACK
     if (m, d) == (6, 21): return "Winter Solstice", C_BLUE
     if (m, d) == (12, 24): return "Christmas Eve", C_GREEN
     if (m, d) == (12, 25): return "Merry Christmas!", C_RED
@@ -44,7 +44,7 @@ def get_easter_egg(dt):
     # Floating Australian holidays
     if m == 5 and wd == 6 and 8 <= d <= 14: return "Mother's Day", C_RED
     if m == 9 and wd == 6 and 1 <= d <= 7: return "Father's Day", C_BLUE
-    if m == 6 and wd == 0 and 1 <= d <= 7: return "WA Day", C_YELLOW
+    if m == 6 and wd == 0 and 1 <= d <= 7: return "WA Day", C_BLACK
     
     # Easter Sunday
     try:
@@ -206,13 +206,13 @@ def get_balingup_bom():
 
 # --- 4. ASSET LOADERS ---
 def get_weather_icon(wmo_code):
-    if wmo_code in [0, 1]: return ("\uf00d", C_YELLOW)
+    if wmo_code in [0, 1]: return ("\uf00d", C_BLACK)
     elif wmo_code in [2, 3]: return ("\uf013", C_BLACK)
     elif wmo_code in [45, 48]: return ("\uf014", C_BLACK)
     elif wmo_code in [51, 53, 55, 56, 57, 61, 63, 65, 66, 67, 80, 81, 82]: return ("\uf019", C_BLUE)
     elif wmo_code in [71, 73, 75, 77, 85, 86]: return ("\uf01b", C_BLUE)
     elif wmo_code in [95, 96, 99]: return ("\uf01e", C_RED)
-    return ("\uf00d", C_YELLOW)
+    return ("\uf00d", C_BLACK)
 
 def get_moon_phase(date_obj):
     new_moon = datetime.date(2000, 1, 6)
