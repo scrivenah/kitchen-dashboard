@@ -26,7 +26,7 @@ font_body       = load_font("Amazon Ember.ttf", 18)
 font_body_bold  = load_font("Amazon Ember Bold.ttf", 18)
 
 # --- 1. LOAD RECIPE PAYLOAD ---
-recipe_data = {"title": "Unknown Recipe", "ingredients": [], "instructions": []}
+recipe_data = {"title": "Unknown Recipe", "ingredients": [], "steps": []}
 try:
     with open("current_recipe.json", "r") as f:
         recipe_data = json.load(f)
@@ -57,36 +57,41 @@ draw = ImageDraw.Draw(img)
 
 title = recipe_data.get("title", "Recipe").upper()
 ingredients = recipe_data.get("ingredients", [])
-instructions = recipe_data.get("instructions", [])
+
+# FIX 1: Fetch "steps" instead of "instructions"
+steps = recipe_data.get("steps", [])
 
 # Header
 draw.rounded_rectangle([(12, 10), (WIDTH - 12, 58)], radius=14, fill=C_WHITE, outline=C_BLACK, width=2)
 draw.text((26, 15), title[:40] + "..." if len(title) > 40 else title, font=font_hero, fill=C_RED)
 
-# Left Column: Ingredients (Width: ~280px)
+# Left Column: Ingredients
 draw.rounded_rectangle([(12, 68), (300, 468)], radius=16, fill=C_WHITE, outline=C_BLACK, width=2)
 draw.text((26, 78), "Ingredients", font=font_title, fill=C_BLACK)
 
 y_cursor = 110
-for item in ingredients[:12]: # Limit to fit screen
+for item in ingredients[:12]:
     wrapped_item = wrap_text(f"• {item}", font_body, 260, draw)
     for line in wrapped_item:
-        if y_cursor < 440:
+        if y_cursor < 445:
             draw.text((26, y_cursor), line, font=font_body, fill=C_BLACK)
-            y_cursor += 24
+            y_cursor += 22 
+    # FIX 2: Paragraph spacing between ingredients
+    y_cursor += 8
 
-# Right Column: Instructions (Width: ~476px)
+# Right Column: Method
 draw.rounded_rectangle([(312, 68), (WIDTH - 12, 468)], radius=16, fill=C_WHITE, outline=C_BLACK, width=2)
 draw.text((326, 78), "Method", font=font_title, fill=C_BLACK)
 
 y_cursor = 110
-for i, step in enumerate(instructions[:6]): # Limit to fit screen
+for i, step in enumerate(steps[:7]):
     wrapped_step = wrap_text(f"{i+1}. {step}", font_body, 440, draw)
     for line in wrapped_step:
-        if y_cursor < 440:
+        if y_cursor < 445:
             draw.text((326, y_cursor), line, font=font_body, fill=C_BLACK)
-            y_cursor += 24
-    y_cursor += 8 # Gap between steps
+            y_cursor += 22 
+    # FIX 2: Paragraph spacing between steps
+    y_cursor += 12
 
 # --- 4. NO-DITHER QUANTIZATION ---
 pal_img = Image.new("P", (1, 1))
@@ -106,4 +111,4 @@ pal_img.putpalette(pal)
 img = img.quantize(palette=pal_img, dither=0)
 
 img.save("recipe.png", "PNG", optimize=True)
-log("Crisp recipe card generated successfully!")
+log("Crisp and correctly spaced recipe card generated successfully!")
