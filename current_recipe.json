@@ -1,19 +1,20 @@
 {
-  "title": "RecipeTin's No-Bake Choc Cheesecake",
-  "meta": "Yield: 12 \u2022 ~520 kcal \u2022 45m",
+  "title": "RecipeTin's Sausage Gnocchi Soup",
+  "meta": "Yield: 5 \u2022 ~480 kcal \u2022 45m",
   "ingredients": [
-    "Base: 140g Oreo cookies, 50g melted butter",
-    "Filling Choc: 200g 70% chocolate, 2 tbsp cocoa powder, 2.5 tbsp boiling water",
-    "Filling Dairy: 1 cup heavy cream, 500g softened cream cheese, 1 cup caster sugar, 1 tsp vanilla extract",
-    "Ganache: 0.5 cup heavy cream, 75g 70% chocolate",
-    "Topping: 1 cup heavy cream, 1 tbsp caster sugar, 0.25 tsp vanilla, shaved chocolate"
+    "Meat & Gnocchi: 500g Italian sausage, 500g potato gnocchi",
+    "Aromatics: 1.5 tbsp olive oil, 1 diced onion, 2 minced garlic cloves",
+    "Veggies & Spices: 2 diced celery sticks, 1 diced carrot, 0.75 tsp Italian herbs, 0.25 tsp chilli flakes",
+    "Liquid Base: 80ml dry white wine, 43g plain flour, 1L low sodium chicken stock",
+    "Seasoning & Dairy: 2.5g salt, 1.5g black pepper, 240ml heavy cream, 50g parmesan",
+    "Finishers: 45g baby spinach, crusty bread for serving"
   ],
   "steps": [
-    "Line an inverted 20cm springform pan with a buttered paper base and high side collars.",
-    "Blitz Oreos into fine crumbs, mix with melted butter, and press firmly into the pan base.",
-    "Melt 200g chocolate, bloom cocoa in hot water, whip 1 cup cream, and beat cream cheese with sugar.",
-    "Fold melted chocolate, bloomed cocoa, and whipped cream into the cream cheese mixture until smooth.",
-    "Pour into pan, chill 2 hours, top with hot cream-chocolate ganache, and set in fridge for 6+ hours.",
-    "Release from pan, pipe whipped cream swirls, top with shaved chocolate, and slice cold."
+    "Brown sausage in pot over high heat, remove with a slotted spoon and reserve.",
+    "Saut\u00e9 onion and garlic on medium-high for 2 min, then add carrot, celery, herbs, and chilli for 2 min.",
+    "Pour in wine and simmer until mostly evaporated, then stir in flour to coat.",
+    "Add stock, salt, pepper, and cooked sausage, then simmer for 5 min.",
+    "Stir in cream and simmer for 5 min, then add gnocchi and parmesan and simmer for 2 min.",
+    "Stir in spinach until wilted, ladle into bowls, and serve with extra parmesan and bread."
   ]
 }
