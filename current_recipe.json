@@ -1,20 +1,18 @@
 {
-  "title": "RecipeTin's Hokkien Noodles",
-  "meta": "Serves 4 \u2022 ~510 kcal \u2022 20 mins",
+  "title": "RecipeTin's Chicken & Gravy",
+  "meta": "Yield: 4 \u2022 ~550 kcal \u2022 55m",
   "ingredients": [
-    "500g hokkien noodles",
-    "350g chicken thighs, sliced",
-    "2 tbsp canola oil, 2 garlic cloves, 8 green onion stems",
-    "1 red capsicum, 3 cups green cabbage",
-    "Sauce: 2 tbsp light soy, 1.5 tbsp dark soy, 2 tbsp oyster sauce, 1 tbsp mirin, 1 tbsp sesame oil, 0.125 tsp white pepper",
-    "Garnish: white sesame seeds, extra green onion"
+    "Chicken: 1.25kg bone-in chicken thighs, 15ml olive oil, 5g paprika, 2.5g garlic powder, 2.5g onion powder, 3g dried thyme, 6g salt, 1.5g pepper",
+    "Veg: 600g baby potatoes, 3 carrots, 1 red onion, 2 crushed garlic cloves, 22ml olive oil, 6g salt, 1.5g pepper",
+    "Gravy: 40g flour, 625ml beef stock, 5ml dark soy sauce, 2.5g black pepper",
+    "Extras: 150g frozen peas, 3g fresh thyme"
   ],
   "steps": [
-    "Mix sauce ingredients in a small bowl and toss chicken with 1.5 tbsp of the sauce for 10 minutes.",
-    "Prepare noodles per packet directions, drain in a colander, and rinse briefly with tap water.",
-    "Heat oil in a large 30cm non-stick pan over high heat and toss chicken for 1 minute.",
-    "Add garlic and white green onion parts, toss for 1 minute, then add capsicum and cabbage for 2 minutes.",
-    "Add remaining sauce, noodles, and green onion parts, then toss for 2 minutes until evenly coated.",
-    "Serve immediately garnished with sesame seeds and sliced green onion."
+    "Preheat oven to 200\u00b0C. Toss potatoes, carrots, onion, garlic, oil, salt, and pepper in a bowl, then pour into a 35x26cm roasting pan.",
+    "Coat chicken in oil and seasoning spices, then place neatly on top of the vegetables.",
+    "Whisk flour with 125ml beef stock until smooth, then whisk in remaining stock, soy sauce, and pepper. Pour into the pan edge.",
+    "Drizzle chicken with a little oil and bake for 45 minutes until browned and potatoes are tender.",
+    "Remove chicken to a plate, stir thawed peas into the pan to thicken the gravy and vegetables.",
+    "Divide vegetables and gravy between bowls, top with chicken, and serve."
   ]
 }
