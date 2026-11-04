@@ -3,7 +3,7 @@ name: Update Dashboard
 on:
   workflow_dispatch:
   schedule:
-    - cron: '25,55 * * * *'
+    - cron: '20,50 * * * *'
 
 jobs:
   render:
