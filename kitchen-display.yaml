@@ -37,7 +37,7 @@ time:
     timezone: "AWST-8" 
     on_time:
       - seconds: 0
-        minutes: 28, 58 
+        minutes: 20, 50 
         then:
           - component.update: dashboard_image
 
